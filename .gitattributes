@@ -1,0 +1,11 @@
+# Normalize line endings on the way into the repo. Without this, files
+# authored on Windows land as CRLF and show up as whole-file diffs to anyone
+# on macOS or Linux.
+* text=auto
+
+# These must be LF in the container no matter who committed them. A shell
+# script with CRLF endings fails on Linux with "bad interpreter: no such file
+# or directory", which points nowhere near the real cause.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-entrypoint.sh text eol=lf

@@ -38,6 +38,12 @@ COPY backend/ backend/
 # main.py silently skips mounting them and serves a bare API.
 COPY --from=frontend /app/frontend/dist frontend/dist
 
+# Migrations and the admin bootstrap run at startup rather than at build time —
+# the database isn't reachable while building. render.yaml puts migrations in
+# preDeployCommand, which the free plan doesn't offer, so they move here.
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Non-root. It owns /app because backend/ is where the SQLite fallback file
 # gets written when DATABASE_URL is unset.
 RUN useradd --create-home --uid 10001 app && chown -R app:app /app
@@ -47,7 +53,4 @@ USER app
 ENV PORT=10000
 EXPOSE 10000
 
-# Migrations run at startup rather than at build time — the database isn't
-# reachable while building. render.yaml puts this in preDeployCommand, which
-# the free plan doesn't offer, so it moves here.
-CMD ["sh", "-c", "cd backend && alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["/app/docker-entrypoint.sh"]
