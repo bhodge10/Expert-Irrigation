@@ -1,0 +1,33 @@
+# Keeps the build context small and the image clean. Anything rebuilt inside
+# the image, or that must never end up in a layer, belongs here.
+
+.git/
+.gitignore
+
+# Secrets and real customer mail. Never in an image.
+.env
+docs/
+samples/
+
+# Rebuilt during the build.
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.db-journal
+
+# Dev-only; production never installs these.
+backend/tests/
+backend/requirements-dev.txt
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
