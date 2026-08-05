@@ -1,0 +1,5 @@
+# Dev-only tooling. Not installed in production ? see render.yaml.
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+pytest
+extract-msg        # reading the .msg samples in docs/email examples/

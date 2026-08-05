@@ -1,0 +1,16 @@
+# Production dependencies, direct only — pip resolves the rest.
+# Dev and test tooling lives in requirements-dev.txt and is never installed
+# on Render.
+#
+# Pinned deliberately: in six months you want the versions that worked, not
+# whatever shipped that week.
+
+alembic==1.18.5
+bcrypt==5.0.0
+fastapi==0.141.1
+httpx==0.28.1              # talking to Microsoft Graph
+psycopg[binary]==3.3.4     # Postgres driver — production only
+pydantic[email]==2.13.4
+pydantic-settings==2.14.2
+SQLAlchemy==2.0.51
+uvicorn[standard]==0.52.0

@@ -1,0 +1,689 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#10231A;
+    --ink2:#2C4438;
+    --muted:#6B7F73;
+    --paper:#FFFFFF;
+    --wash:#EDF1EB;
+    --wash2:#F6F8F5;
+    --line:#D9E0D6;
+    --green:#1F7A47;
+    --green-soft:#E4F1E9;
+    --blue:#1D6E9C;
+    --blue-soft:#E2EEF6;
+    --slate:#5E6E78;
+    --slate-soft:#EAEEF0;
+    --amber:#B96C0C;
+    --red:#A9342A;
+    --red-soft:#FBE9E7;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(16,35,26,.06), 0 8px 24px rgba(16,35,26,.06);
+    --display:"Barlow Semi Condensed", ui-sans-serif, system-ui, sans-serif;
+    --body:"Public Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  *{box-sizing:border-box}
+
+  .eq-root{
+    font-family:var(--body);
+    color:var(--ink);
+    background:var(--wash);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- top bar ---------- */
+  .eq-top{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 16px;
+    background:var(--ink);
+    color:#EAF2EC;
+  }
+  .eq-mark{
+    display:flex;align-items:baseline;gap:8px;
+    font-family:var(--display);
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .eq-mark b{font-weight:700;font-size:17px;color:#fff}
+  .eq-mark span{font-size:12px;color:#8FB6A0;letter-spacing:.14em}
+  .eq-drop{
+    width:9px;height:9px;border-radius:50% 50% 50% 0;
+    background:var(--blue);transform:rotate(-45deg);
+    box-shadow:0 0 0 3px rgba(29,110,156,.22);
+    margin-right:2px;
+  }
+  .eq-top-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .eq-sync{
+    font-family:var(--display);font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;color:#8FB6A0;display:flex;align-items:center;gap:7px;
+  }
+  .eq-pulse{width:7px;height:7px;border-radius:50%;background:#4ED08A;box-shadow:0 0 0 0 rgba(78,208,138,.7);animation:eq-pulse 2.6s infinite}
+  @keyframes eq-pulse{0%{box-shadow:0 0 0 0 rgba(78,208,138,.6)}70%{box-shadow:0 0 0 7px rgba(78,208,138,0)}100%{box-shadow:0 0 0 0 rgba(78,208,138,0)}}
+  .eq-me{display:flex;align-items:center;gap:8px;font-size:13px;color:#DCE9E0}
+
+  .eq-av{
+    width:26px;height:26px;border-radius:50%;
+    display:grid;place-items:center;
+    font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.02em;
+    color:#fff;flex:none;
+  }
+
+  /* ---------- shell ---------- */
+  .eq-shell{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:660px}
+
+  /* ---------- rail ---------- */
+  .eq-rail{
+    background:var(--wash2);
+    border-right:1px solid var(--line);
+    padding:16px 12px;
+  }
+  .eq-eyebrow{
+    font-family:var(--display);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);
+    padding:0 8px;margin:0 0 8px;
+  }
+  .eq-q{
+    display:flex;align-items:center;gap:9px;width:100%;
+    padding:9px 10px;margin-bottom:3px;
+    border:0;border-radius:8px;background:transparent;cursor:pointer;
+    font-family:var(--body);font-size:14px;color:var(--ink2);text-align:left;
+  }
+  .eq-q:hover{background:#E6EDE3}
+  .eq-q[aria-pressed="true"]{background:var(--ink);color:#fff;font-weight:600}
+  .eq-q[aria-pressed="true"] .eq-count{background:rgba(255,255,255,.18);color:#fff}
+  .eq-dot{width:8px;height:8px;border-radius:2px;flex:none}
+  .eq-count{
+    margin-left:auto;min-width:22px;text-align:center;
+    font-family:var(--display);font-size:12px;font-weight:600;
+    background:#E1E8DE;color:var(--ink2);border-radius:20px;padding:1px 7px;
+  }
+  .eq-rule{height:1px;background:var(--line);margin:16px 4px}
+  .eq-seg{display:flex;background:#E6EDE3;border-radius:8px;padding:3px;gap:2px;margin:0 4px}
+  .eq-seg button{
+    flex:1;border:0;background:transparent;cursor:pointer;padding:6px 4px;border-radius:6px;
+    font-family:var(--display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  }
+  .eq-seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,35,26,.12)}
+
+  .eq-legend{padding:14px 8px 0;font-size:11.5px;color:var(--muted);line-height:1.6}
+  .eq-legend b{font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;font-size:10.5px;color:var(--ink2);display:block;margin-bottom:4px}
+
+  /* ---------- main ---------- */
+  .eq-main{display:grid;grid-template-columns:minmax(0,1fr);background:var(--wash)}
+  .eq-main.eq-split{grid-template-columns:minmax(320px,1fr) minmax(0,1.15fr)}
+
+  .eq-list{padding:16px;overflow:auto;max-height:820px}
+  .eq-listhead{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;padding:0 2px}
+  .eq-listhead h2{font-family:var(--display);font-size:20px;letter-spacing:.02em;margin:0;font-weight:600}
+  .eq-listhead p{margin:0;font-size:12.5px;color:var(--muted)}
+
+  .eq-card{
+    position:relative;display:block;width:100%;text-align:left;
+    background:var(--paper);border:1px solid var(--line);border-left-width:4px;
+    border-radius:var(--radius);padding:13px 14px 12px 15px;margin-bottom:9px;
+    cursor:pointer;box-shadow:var(--shadow);
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    font-family:var(--body);
+  }
+  .eq-card:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(16,35,26,.07),0 12px 28px rgba(16,35,26,.09)}
+  .eq-card[aria-current="true"]{border-color:var(--ink);box-shadow:0 0 0 2px rgba(16,35,26,.12),var(--shadow)}
+  .eq-card.svc{border-left-color:var(--green)}
+  .eq-card.sal{border-left-color:var(--blue)}
+  .eq-card.oth{border-left-color:var(--slate)}
+  .eq-card.done{opacity:.55}
+
+  .eq-row1{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .eq-from{font-weight:600;font-size:14px}
+  .eq-time{margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .eq-subj{font-family:var(--display);font-size:16.5px;font-weight:600;letter-spacing:.01em;margin:1px 0 4px;line-height:1.25}
+  .eq-snip{font-size:13px;color:var(--ink2);opacity:.82;margin:0 0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .eq-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+  .eq-tag{
+    font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+    padding:3px 8px;border-radius:5px;white-space:nowrap;
+  }
+  .t-svc{background:var(--green-soft);color:#155C34}
+  .t-sal{background:var(--blue-soft);color:#14547A}
+  .t-oth{background:var(--slate-soft);color:#42535C}
+  .t-urgent{background:var(--red-soft);color:var(--red)}
+  .t-plain{background:var(--wash);color:var(--muted)}
+
+  /* confidence meter — the zone-dial signature */
+  .eq-conf{display:flex;align-items:center;gap:5px;margin-left:auto}
+  .eq-bars{display:flex;gap:2px}
+  .eq-bars i{width:4px;height:11px;border-radius:1px;background:#DDE4DA;display:block}
+  .eq-bars i.on{background:var(--green)}
+  .eq-bars.low i.on{background:var(--amber)}
+  .eq-conf small{font-family:var(--display);font-size:11px;letter-spacing:.06em;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  .eq-assign{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .eq-av.sm{width:21px;height:21px;font-size:10px}
+  .eq-unassigned{
+    width:21px;height:21px;border-radius:50%;border:1.5px dashed #B9C6BC;
+    display:grid;place-items:center;color:#9BAAA0;font-size:12px;line-height:1;flex:none;
+  }
+
+  .eq-empty{
+    background:var(--paper);border:1px dashed var(--line);border-radius:var(--radius);
+    padding:40px 24px;text-align:center;color:var(--muted);
+  }
+  .eq-empty b{display:block;font-family:var(--display);font-size:17px;color:var(--ink);margin-bottom:5px;letter-spacing:.02em}
+
+  /* ---------- detail ---------- */
+  .eq-detail{
+    background:var(--paper);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;max-height:820px;
+  }
+  .eq-dhead{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .eq-dtop{display:flex;align-items:flex-start;gap:10px;margin-bottom:9px}
+  .eq-dtop h3{font-family:var(--display);font-size:21px;font-weight:600;margin:0;line-height:1.2;letter-spacing:.01em}
+  .eq-x{
+    margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:7px;
+    width:28px;height:28px;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;flex:none;
+  }
+  .eq-x:hover{background:var(--wash);color:var(--ink)}
+  .eq-dmeta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+  .eq-dmeta a{color:var(--blue);text-decoration:none}
+
+  .eq-body{padding:16px 18px;overflow:auto;flex:1;font-size:13.5px;color:var(--ink2);white-space:pre-wrap;line-height:1.6}
+
+  .eq-ai{
+    margin:0 18px 14px;background:var(--wash2);border:1px solid var(--line);
+    border-radius:var(--radius);padding:11px 13px;
+  }
+  .eq-ai h4{
+    font-family:var(--display);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 7px;display:flex;align-items:center;gap:7px;
+  }
+  .eq-ai ul{margin:0;padding-left:16px;font-size:13px;color:var(--ink2)}
+  .eq-ai li{margin-bottom:3px}
+  .eq-ai li:last-child{margin:0}
+
+  .eq-actions{border-top:1px solid var(--line);padding:12px 18px;background:var(--wash2)}
+  .eq-arow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .eq-btn{
+    font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+    border-radius:8px;padding:9px 14px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink2);
+  }
+  .eq-btn:hover{background:var(--wash)}
+  .eq-btn.pri{background:var(--green);border-color:var(--green);color:#fff}
+  .eq-btn.pri:hover{background:#186238}
+  .eq-btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  .eq-btn.ghost:hover{background:var(--wash)}
+  .eq-btn:disabled{opacity:.45;cursor:default}
+
+  .eq-menu-wrap{position:relative}
+  .eq-menu{
+    position:absolute;bottom:calc(100% + 6px);left:0;z-index:30;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 12px 32px rgba(16,35,26,.16);padding:5px;min-width:196px;
+  }
+  .eq-menu p{
+    font-family:var(--display);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--muted);margin:5px 9px 4px;
+  }
+  .eq-menu button{
+    display:flex;align-items:center;gap:9px;width:100%;text-align:left;
+    border:0;background:transparent;border-radius:7px;padding:7px 9px;cursor:pointer;
+    font-family:var(--body);font-size:13.5px;color:var(--ink2);
+  }
+  .eq-menu button:hover{background:var(--wash)}
+  .eq-menu hr{border:0;border-top:1px solid var(--line);margin:5px 0}
+
+  /* composer */
+  .eq-comp{border-top:1px solid var(--line);background:#fff;padding:14px 18px}
+  .eq-comp label{
+    font-family:var(--display);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--muted);display:block;margin-bottom:6px;
+  }
+  .eq-comp .to{font-size:13px;color:var(--ink2);margin-bottom:10px}
+  .eq-comp textarea{
+    width:100%;min-height:172px;resize:vertical;
+    border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;
+    font-family:var(--body);font-size:13.5px;line-height:1.6;color:var(--ink);background:var(--wash2);
+  }
+  .eq-comp textarea:focus{outline:2px solid rgba(31,122,71,.35);outline-offset:1px;background:#fff}
+  .eq-draftnote{font-size:12px;color:var(--muted);margin:7px 0 11px;display:flex;align-items:center;gap:6px}
+
+  .eq-toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);
+    background:var(--ink);color:#fff;padding:11px 17px;border-radius:9px;
+    font-size:13.5px;box-shadow:0 12px 32px rgba(16,35,26,.3);
+    opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;z-index:90;
+  }
+  .eq-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .eq-foot{
+    padding:9px 16px;background:var(--wash2);border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;
+  }
+
+  button:focus-visible, .eq-card:focus-visible, textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  @media (max-width:900px){
+    .eq-shell{grid-template-columns:minmax(0,1fr)}
+    .eq-rail{
+      border-right:0;border-bottom:1px solid var(--line);
+      display:flex;gap:6px;overflow-x:auto;padding:10px;align-items:center;
+    }
+    .eq-rail .eq-eyebrow,.eq-rail .eq-rule,.eq-legend{display:none}
+    .eq-q{width:auto;white-space:nowrap;margin:0;flex:none}
+    .eq-seg{margin-left:auto;flex:none}
+    .eq-main.eq-split{grid-template-columns:minmax(0,1fr)}
+    .eq-main.eq-split .eq-list{display:none}
+    .eq-detail{border-left:0;max-height:none}
+  }
+</style>
+
+<div class="eq-root">
+  <div class="eq-top">
+    <span class="eq-drop"></span>
+    <span class="eq-mark"><b>Expert</b><span>Inbox Queue</span></span>
+    <div class="eq-top-right">
+      <span class="eq-sync"><span class="eq-pulse"></span><span id="eq-synctxt">Synced 12:41 pm</span></span>
+      <span class="eq-me"><span class="eq-av" style="background:#1F7A47">CZ</span>Craig Z.</span>
+    </div>
+  </div>
+
+  <div class="eq-shell">
+    <nav class="eq-rail">
+      <p class="eq-eyebrow">Queues</p>
+      <button class="eq-q" data-q="all" aria-pressed="true"><span class="eq-dot" style="background:var(--ink)"></span>All<span class="eq-count" id="c-all">0</span></button>
+      <button class="eq-q" data-q="service" aria-pressed="false"><span class="eq-dot" style="background:var(--green)"></span>Service<span class="eq-count" id="c-service">0</span></button>
+      <button class="eq-q" data-q="sales" aria-pressed="false"><span class="eq-dot" style="background:var(--blue)"></span>Sales<span class="eq-count" id="c-sales">0</span></button>
+      <button class="eq-q" data-q="other" aria-pressed="false"><span class="eq-dot" style="background:var(--slate)"></span>Other<span class="eq-count" id="c-other">0</span></button>
+
+      <div class="eq-rule"></div>
+      <p class="eq-eyebrow">Show</p>
+      <div class="eq-seg" id="eq-scope">
+        <button data-scope="open" aria-pressed="true">Open</button>
+        <button data-scope="mine" aria-pressed="false">Mine</button>
+        <button data-scope="done" aria-pressed="false">Done</button>
+      </div>
+
+      <div class="eq-legend">
+        <b>Sorting</b>
+        Mail is read as it arrives in Craig, Megan, Joyce and Casey's inboxes, then dropped into a queue. Wrong call? Move it — the sorting learns from the correction.
+      </div>
+    </nav>
+
+    <main class="eq-main" id="eq-main">
+      <section class="eq-list" id="eq-list"></section>
+      <aside class="eq-detail" id="eq-detail" hidden></aside>
+    </main>
+  </div>
+
+  <div class="eq-foot">
+    <span>Mockup — sample mail, nothing sends.</span>
+    <span>Reads Microsoft 365 · writes back to ServiceTitan</span>
+  </div>
+</div>
+
+<div class="eq-toast" id="eq-toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  const USERS = {
+    craig:{name:"Craig Zumdick", short:"Craig", init:"CZ", color:"#1F7A47", role:"Owner"},
+    megan:{name:"Megan", short:"Megan", init:"M", color:"#1D6E9C", role:"Office"},
+    joyce:{name:"Joyce", short:"Joyce", init:"J", color:"#7A4FA3", role:"Service scheduling"},
+    casey:{name:"Casey", short:"Casey", init:"C", color:"#B96C0C", role:"Office"},
+    jordan:{name:"Jordan", short:"Jordan", init:"JD", color:"#A9342A", role:"Sales / estimating"}
+  };
+  const ME = "craig";
+  const QMETA = {
+    service:{label:"Service", cls:"svc", tag:"t-svc"},
+    sales:{label:"Sales", cls:"sal", tag:"t-sal"},
+    other:{label:"Other", cls:"oth", tag:"t-oth"}
+  };
+
+  let items = [
+    {
+      id:1, queue:"service", urgent:true, conf:96, time:"11:52 am", ago:"49m",
+      from:"Ron Delaney", email:"rdelaney74@gmail.com", addr:"Hebron, KY",
+      to:"craigz@expertsvc.com",
+      subject:"Water running down the driveway — need someone today",
+      body:"Craig,\n\nWoke up to water pouring out of the mulch bed by the mailbox and running all the way down the driveway into the street. I shut the system off at the controller but it's still seeping. Looks like the line itself, not a head.\n\nI'm home all day. Please call my cell, 859-555-0147.\n\nRon",
+      why:["Active water loss described — flagged high priority","Customer already shut off the controller","Existing member: Gold plan, Hebron"],
+      draft:"Ron,\n\nThanks for the heads up — sounds like a mainline break rather than a head, and you did the right thing shutting it down at the controller.\n\nI've flagged this as an emergency and Joyce will call you within the hour to get a tech out today. If it's still seeping with the system off, shut the water off at the backflow behind the house.\n\nWe'll be in touch shortly.\n\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:2, queue:"service", urgent:false, conf:94, time:"11:20 am", ago:"1h",
+      from:"Katie Brennan", email:"kbrennan@outlook.com", addr:"Union, KY",
+      to:"info@expertsvc.com",
+      subject:"Sprinkler head soaking the driveway",
+      body:"Hi there — one of the heads on the front right side is spraying across the driveway instead of the lawn. It's been doing it since the spring startup. Nothing else seems wrong with the system.\n\nNo rush, but we'd like it looked at before the next round of hot weather. Afternoons are best for us.\n\nThanks,\nKatie Brennan\n859-555-0182",
+      why:["Repair on an existing system — service queue","Nozzle spray-arc adjustment, one head","Afternoon preference noted for dispatch"],
+      draft:"Katie,\n\nThanks for reaching out. A head throwing across the driveway is usually an arc adjustment or a slightly turned body — quick fix on a normal service call.\n\nI'm putting you in for an afternoon slot and someone will confirm the day with you shortly.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:"joyce", done:false
+    },
+    {
+      id:3, queue:"sales", urgent:false, conf:91, time:"10:38 am", ago:"2h",
+      from:"Tom & Lisa Whitaker", email:"lwhitaker@icloud.com", addr:"Indian Hill, OH",
+      to:"craigz@expertsvc.com",
+      subject:"Landscape lighting quote — new build, ready this fall",
+      body:"Craig,\n\nWe're finishing a new build in Indian Hill and the landscaping goes in at the end of August. We'd like to talk about lighting — uplighting on the front elevation, path lights along the walk, and something for the back patio and steps.\n\nAlso curious whether you handle irrigation at the same time, since the yard is bare right now.\n\nWhat's the best way to get on your calendar for an estimate?\n\nTom Whitaker\n513-555-0119",
+      why:["New install, no existing account — sales queue","Both lighting and irrigation mentioned","Timing tied to landscape install, end of August"],
+      draft:"Tom and Lisa,\n\nThanks for thinking of us. Doing lighting and irrigation together while the yard is still bare is absolutely the right call — the trenching is far easier and cheaper before sod goes down.\n\nJordan handles our estimates and can walk the property with you. He'll reach out to set up a time that works before your landscaping goes in.\n\nTalk soon,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:4, queue:"other", urgent:false, conf:88, time:"9:54 am", ago:"3h",
+      from:"Marcus Hall", email:"mhall.contracting@gmail.com", addr:"Florence, KY",
+      to:"joyce@expertsvc.com",
+      subject:"Need to move Thursday's appointment",
+      body:"Good morning — we have someone scheduled to come out Thursday morning for the backflow test. I have to be out of town that day. Can we push it to the following week? Any morning works except Wednesday.\n\nThanks,\nMarcus",
+      why:["Reschedule on an existing job — not a new request","Availability given: any morning except Wednesday","Matched to an open ServiceTitan job for Thursday"],
+      draft:"Marcus,\n\nNo problem at all. I'll get Thursday's backflow test moved to a morning the following week and send you a confirmation once it's on the board.\n\nThanks for the notice,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:5, queue:"service", urgent:false, conf:73, time:"9:31 am", ago:"3h",
+      from:"Sandra Cole", email:"sandracole@gmail.com", addr:"Villa Hills, KY",
+      to:"megan@expertsvc.com",
+      subject:"Deck lights buzzing, half the run is out",
+      body:"The transformer by the garage has started making a humming noise, and about half the lights along the deck stairs stopped coming on last week. The rest still work.\n\nWe've had the system about four years. Is this something you can look at, or is it time to replace the whole thing?\n\nSandra",
+      why:["Repair language, but the replacement question could push it to sales","Lighting transformer plus a partial run out","Low confidence — worth confirming the queue"],
+      draft:"Sandra,\n\nA humming transformer with half a run out is usually a bad connection or a failed lead somewhere in that section, not the whole system — four years is young for a full replacement.\n\nWe'll get a tech out to test the run and give you an honest answer either way. Someone will call to schedule.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:6, queue:"sales", urgent:false, conf:97, time:"8:47 am", ago:"4h",
+      from:"Website form — New Customer", email:"forms@expertsvc.com", addr:"Burlington, KY",
+      to:"info@expertsvc.com",
+      subject:"New customer form: Jen Ostrowski — Gold membership + spring startup",
+      body:"Name: Jen Ostrowski\nAddress: Burlington, KY 41005\nPhone: 859-555-0166\nService needed: Membership plan\nSystem age: 6 zones, installed by previous owner\n\nMessage: We just bought the house and there's a sprinkler system we've never run. Interested in the Gold membership and getting it started up and inspected. Who installed it originally, we have no idea.",
+      why:["Submitted through the New Customer form","Membership plan interest — sales queue","No account on file; new contact for ServiceTitan"],
+      draft:"Jen,\n\nWelcome to the neighborhood — and congratulations on the house. Inheriting a system you've never run is common, and a startup with a full inspection is exactly the right first step. We'll find out fast what shape it's in.\n\nThe Gold plan covers your startup, winterization, two seasonal inspections and priority scheduling. Someone will call to get you on the schedule and walk you through it.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:"jordan", done:false
+    },
+    {
+      id:7, queue:"other", urgent:false, conf:92, time:"8:12 am", ago:"4h",
+      from:"Priya Raghavan", email:"praghavan@ncwd.example.org", addr:"Erlanger, KY",
+      to:"craigz@expertsvc.com",
+      subject:"Backflow certificate copy for the water district",
+      body:"Hello — the water district is asking for a copy of the backflow test certificate for our address from this spring. I can't find our copy. Could you send it over?\n\nThank you,\nPriya Raghavan",
+      why:["Records request — no work to schedule","Certificate is on file in ServiceTitan from April","No dispatch needed"],
+      draft:"Priya,\n\nHappy to help — I've pulled your April backflow certificate and attached it here. Feel free to forward it straight to the water district.\n\nIf they need anything else, just let us know.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:"megan", done:false
+    },
+    {
+      id:8, queue:"sales", urgent:false, conf:84, time:"Yesterday", ago:"1d",
+      from:"Dave Kuntz — Kuntz Homes", email:"dkuntz@kuntzhomes.example.com", addr:"Lawrenceburg, IN",
+      to:"craigz@expertsvc.com",
+      subject:"Irrigation bid — 12 lots, Ridgewater phase 2",
+      body:"Craig,\n\nWe're breaking ground on phase 2 in September, twelve lots. Looking for a per-lot irrigation number and what your lead time looks like if we stagger them through the fall.\n\nI can send the plat and lot dimensions if you tell me what you need. We'd want the same spec across all twelve.\n\nDave",
+      why:["Commercial / builder bid — larger than a single-home quote","Twelve lots, staggered fall schedule","Requesting plans; estimator should respond directly"],
+      draft:"Dave,\n\nGood to hear from you. Twelve lots on one spec is straightforward for us, and staggering through the fall works well on our end.\n\nSend over the plat with lot dimensions and any HOA requirements on water source, and Jordan will put together a per-lot number along with our lead time.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:9, queue:"other", urgent:false, conf:79, time:"Yesterday", ago:"1d",
+      from:"Bill Hoffman", email:"whoffman@gmail.com", addr:"Edgewood, KY",
+      to:"megan@expertsvc.com",
+      subject:"Question on invoice 14822",
+      body:"I was billed a service call fee on the last visit, but I'm on the Silver plan and thought that was reduced. Can someone take a look at invoice 14822?\n\nBill Hoffman",
+      why:["Billing question — no service to dispatch","Member discount may not have been applied","Invoice 14822 matched in ServiceTitan"],
+      draft:"Bill,\n\nThanks for flagging it — you're right that the Silver plan carries a reduced service call rate. Let me pull invoice 14822 and check what was applied.\n\nIf we billed it at the standard rate we'll correct it and send you an updated copy.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:null, done:false
+    },
+    {
+      id:10, queue:"service", urgent:false, conf:90, time:"Yesterday", ago:"1d",
+      from:"Doug Mercer", email:"dmercer1962@yahoo.com", addr:"Independence, KY",
+      to:"info@expertsvc.com",
+      subject:"Zone 4 won't come on",
+      body:"Zones 1 through 3 run fine but zone 4 does nothing, no water at all. Tried running it manually from the controller and still nothing. Everything worked last season.\n\nDoug Mercer\n859-555-0133",
+      why:["Single zone dead, others functioning — likely valve or solenoid","Manual run already attempted","Existing account, system serviced last spring"],
+      draft:"Doug,\n\nOne zone dead while the others run is almost always the valve solenoid or the wire to it — good news is that it's a routine repair.\n\nSince you've already tried a manual run, we'll get a tech out to test the valve. Someone will call you with a day and window.\n\nThanks,\nCraig Zumdick\nExpert Irrigation & Outdoor Lighting\n(859) 282-8101",
+      assignee:"joyce", done:false
+    }
+  ];
+
+  let queue = "all", scope = "open", selected = null, composing = false, draftText = "", menu = null;
+
+  const $ = s => document.querySelector(s);
+  const listEl = $("#eq-list"), detailEl = $("#eq-detail"), mainEl = $("#eq-main"), toastEl = $("#eq-toast");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("on");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>toastEl.classList.remove("on"), 2600);
+  }
+
+  function visible(){
+    return items.filter(it=>{
+      if(queue !== "all" && it.queue !== queue) return false;
+      if(scope === "done") return it.done;
+      if(it.done) return false;
+      if(scope === "mine") return it.assignee === ME;
+      return true;
+    });
+  }
+
+  function avatar(key, small){
+    const u = USERS[key];
+    return `<span class="eq-av${small?" sm":""}" style="background:${u.color}" title="${esc(u.name)}">${u.init}</span>`;
+  }
+
+  function bars(conf){
+    const filled = Math.max(1, Math.round(conf/20));
+    let s = `<span class="eq-bars${conf<80?" low":""}">`;
+    for(let i=0;i<5;i++) s += `<i class="${i<filled?"on":""}"></i>`;
+    return s + `</span>`;
+  }
+
+  function renderCounts(){
+    const open = items.filter(i=>!i.done);
+    $("#c-all").textContent = open.length;
+    ["service","sales","other"].forEach(q=>{
+      $("#c-"+q).textContent = open.filter(i=>i.queue===q).length;
+    });
+  }
+
+  function renderList(){
+    const rows = visible();
+    const heading = queue==="all" ? "All requests" : QMETA[queue].label + " queue";
+    const sub = scope==="done" ? "Handled" : scope==="mine" ? "Assigned to you" : "Waiting on someone";
+
+    if(!rows.length){
+      listEl.innerHTML = `
+        <div class="eq-listhead"><h2>${heading}</h2><p>${sub}</p></div>
+        <div class="eq-empty"><b>Nothing waiting here</b>New mail lands in this queue automatically as it arrives.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = `
+      <div class="eq-listhead"><h2>${heading}</h2><p>${rows.length} ${rows.length===1?"request":"requests"} · ${sub}</p></div>
+      ${rows.map(it=>`
+        <div class="eq-card ${QMETA[it.queue].cls}${it.done?" done":""}" role="button" tabindex="0"
+             data-id="${it.id}" aria-current="${selected===it.id}">
+          <div class="eq-row1">
+            <span class="eq-from">${esc(it.from)}</span>
+            <span class="eq-time">${esc(it.time)}</span>
+          </div>
+          <div class="eq-subj">${esc(it.subject)}</div>
+          <p class="eq-snip">${esc(it.body.replace(/\n+/g," ").slice(0,150))}…</p>
+          <div class="eq-row2">
+            <span class="eq-tag ${QMETA[it.queue].tag}">${QMETA[it.queue].label}</span>
+            ${it.urgent?`<span class="eq-tag t-urgent">Emergency</span>`:``}
+            ${it.done?`<span class="eq-tag t-plain">Handled</span>`:``}
+            <span class="eq-assign">${it.assignee?avatar(it.assignee,true)+esc(USERS[it.assignee].short):`<span class="eq-unassigned">+</span>Unassigned`}</span>
+            <span class="eq-conf">${bars(it.conf)}<small>${it.conf}%</small></span>
+          </div>
+        </div>`).join("")}`;
+  }
+
+  function renderDetail(){
+    const it = items.find(i=>i.id===selected);
+    if(!it){ detailEl.hidden = true; mainEl.classList.remove("eq-split"); return; }
+    detailEl.hidden = false; mainEl.classList.add("eq-split");
+
+    detailEl.innerHTML = `
+      <div class="eq-dhead">
+        <div class="eq-dtop">
+          <h3>${esc(it.subject)}</h3>
+          <button class="eq-x" id="d-close" aria-label="Close">✕</button>
+        </div>
+        <div class="eq-dmeta">
+          <span class="eq-tag ${QMETA[it.queue].tag}">${QMETA[it.queue].label}</span>
+          ${it.urgent?`<span class="eq-tag t-urgent">Emergency</span>`:``}
+          <strong>${esc(it.from)}</strong>
+          <a href="#" onclick="return false">${esc(it.email)}</a>
+          <span style="color:var(--muted)">· ${esc(it.addr)} · to ${esc(it.to)} · ${esc(it.time)}</span>
+        </div>
+      </div>
+
+      <div class="eq-body">${esc(it.body)}</div>
+
+      <div class="eq-ai">
+        <h4>Why it landed here ${bars(it.conf)} <span style="letter-spacing:0;text-transform:none;font-size:11.5px">${it.conf}% confident</span></h4>
+        <ul>${it.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>
+      </div>
+
+      ${composing?`
+      <div class="eq-comp">
+        <label>Reply to sender</label>
+        <div class="to">To: <strong>${esc(it.from)}</strong> &lt;${esc(it.email)}&gt; — sends from ${esc(it.to)}</div>
+        <textarea id="d-draft">${esc(draftText)}</textarea>
+        <p class="eq-draftnote">Drafted in your voice from the last few hundred replies you've sent. Edit anything before it goes.</p>
+        <div class="eq-arow">
+          <button class="eq-btn pri" id="d-send">Send reply</button>
+          <button class="eq-btn" id="d-redraft">Redraft</button>
+          <button class="eq-btn ghost" id="d-cancel">Cancel</button>
+        </div>
+      </div>`:`
+      <div class="eq-actions">
+        <div class="eq-arow">
+          <button class="eq-btn pri" id="d-reply">Reply</button>
+          <span class="eq-menu-wrap">
+            <button class="eq-btn" id="d-assign">${it.assignee?`Reassign — ${esc(USERS[it.assignee].short)}`:"Assign"}</button>
+          </span>
+          <span class="eq-menu-wrap">
+            <button class="eq-btn" id="d-move">Move queue</button>
+          </span>
+          <button class="eq-btn ghost" id="d-done">${it.done?"Reopen":"Mark handled"}</button>
+        </div>
+      </div>`}`;
+
+    detailEl.querySelector("#d-close").onclick = ()=>{ selected=null; composing=false; render(); };
+
+    if(composing){
+      const ta = detailEl.querySelector("#d-draft");
+      ta.oninput = e => draftText = e.target.value;
+      detailEl.querySelector("#d-send").onclick = ()=>{
+        it.done = true; composing = false;
+        if(!it.assignee) it.assignee = ME;
+        toast(`Reply sent to ${it.from.split(" ")[0]} — marked handled`);
+        selected = null; render();
+      };
+      detailEl.querySelector("#d-redraft").onclick = ()=>{ draftText = it.draft; render(); toast("Draft rewritten"); };
+      detailEl.querySelector("#d-cancel").onclick = ()=>{ composing=false; render(); };
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      return;
+    }
+
+    detailEl.querySelector("#d-reply").onclick = ()=>{ composing=true; draftText=it.draft; render(); };
+    detailEl.querySelector("#d-done").onclick = ()=>{
+      it.done = !it.done;
+      toast(it.done?"Marked handled":"Reopened");
+      if(it.done) selected=null;
+      render();
+    };
+
+    detailEl.querySelector("#d-assign").onclick = e => openMenu(e.currentTarget, "assign", it);
+    detailEl.querySelector("#d-move").onclick = e => openMenu(e.currentTarget, "move", it);
+  }
+
+  function closeMenu(){ if(menu){ menu.remove(); menu=null; } }
+
+  function openMenu(btn, kind, it){
+    if(menu && menu.dataset.kind===kind){ closeMenu(); return; }
+    closeMenu();
+    const m = document.createElement("div");
+    m.className = "eq-menu"; m.dataset.kind = kind;
+
+    if(kind==="assign"){
+      m.innerHTML = `<p>Assign to</p>
+        <button data-u="${ME}">${avatar(ME,true)} Me (${USERS[ME].short})</button><hr>
+        ${Object.keys(USERS).filter(k=>k!==ME).map(k=>
+          `<button data-u="${k}">${avatar(k,true)} ${esc(USERS[k].name)} <span style="color:var(--muted);font-size:11.5px;margin-left:auto">${esc(USERS[k].role)}</span></button>`
+        ).join("")}
+        ${it.assignee?`<hr><button data-u="none" style="color:var(--muted)">Clear assignment</button>`:``}`;
+      m.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+        const k = b.dataset.u;
+        it.assignee = k==="none" ? null : k;
+        closeMenu();
+        toast(k==="none" ? "Assignment cleared" : k===ME ? "Assigned to you" : `Assigned to ${USERS[k].short}`);
+        render();
+      });
+    } else {
+      m.innerHTML = `<p>Move to queue</p>
+        ${Object.keys(QMETA).map(q=>
+          `<button data-q="${q}" ${q===it.queue?'style="opacity:.5"':''}>
+            <span class="eq-dot" style="background:${q==='service'?'var(--green)':q==='sales'?'var(--blue)':'var(--slate)'}"></span>
+            ${QMETA[q].label}${q===it.queue?" (current)":""}
+          </button>`).join("")}
+        <hr><p style="margin-bottom:7px;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:11.5px;line-height:1.5">Moving it teaches the sorting what it got wrong.</p>`;
+      m.querySelectorAll("button[data-q]").forEach(b=>b.onclick=()=>{
+        const q = b.dataset.q;
+        if(q!==it.queue){ it.queue = q; it.conf = 99; toast(`Moved to ${QMETA[q].label} — noted for next time`); }
+        closeMenu(); render();
+      });
+    }
+    btn.parentElement.appendChild(m);
+    menu = m;
+  }
+
+  function render(){ renderCounts(); renderList(); renderDetail(); }
+
+  document.querySelectorAll(".eq-q").forEach(b=>b.onclick=()=>{
+    queue = b.dataset.q;
+    document.querySelectorAll(".eq-q").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));
+    closeMenu(); render();
+  });
+
+  document.querySelectorAll("#eq-scope button").forEach(b=>b.onclick=()=>{
+    scope = b.dataset.scope;
+    document.querySelectorAll("#eq-scope button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));
+    selected = null; composing = false; closeMenu(); render();
+  });
+
+  listEl.addEventListener("click", e=>{
+    const card = e.target.closest(".eq-card");
+    if(!card) return;
+    selected = Number(card.dataset.id); composing = false; closeMenu(); render();
+  });
+  listEl.addEventListener("keydown", e=>{
+    const card = e.target.closest(".eq-card");
+    if(!card || (e.key!=="Enter" && e.key!==" ")) return;
+    e.preventDefault();
+    selected = Number(card.dataset.id); composing = false; closeMenu(); render();
+  });
+
+  document.addEventListener("click", e=>{
+    if(menu && !e.target.closest(".eq-menu") && !e.target.closest(".eq-menu-wrap")) closeMenu();
+  });
+  document.addEventListener("keydown", e=>{
+    if(e.key!=="Escape") return;
+    if(menu) closeMenu();
+    else if(composing){ composing=false; render(); }
+    else if(selected){ selected=null; render(); }
+  });
+
+  render();
+})();
+</script>

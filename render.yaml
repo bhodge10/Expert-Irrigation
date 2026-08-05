@@ -1,0 +1,109 @@
+# Infrastructure for Expert Inbox Queue, as code.
+#
+# Render reads this file from the repo root. Changing infrastructure means
+# editing this file and pushing, not clicking around the dashboard.
+#
+# Phase 1 needs one web service and one Postgres database. The background
+# poller lands in Phase 2 and is stubbed at the bottom of this file.
+
+services:
+  - type: web
+    name: expert-inbox-queue
+    runtime: python
+    plan: starter
+    region: ohio
+    branch: main
+
+    # Render's Python image ships Node, so one service builds both halves:
+    # the API and the frontend it serves.
+    buildCommand: |
+      pip install -r backend/requirements.txt
+      cd frontend && npm ci && npm run build
+
+    # Runs after the build, before traffic moves over. If a migration fails
+    # the old version keeps serving.
+    preDeployCommand: cd backend && alembic upgrade head
+
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: expert-inbox-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true # Render generates one and keeps it stable
+      - key: COOKIE_SECURE
+        value: "1" # Render terminates TLS, so the cookie can be Secure
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+
+      # Phase 2 onward. Set the real values in the Render dashboard or an
+      # environment group — never in this file, which is committed.
+      - key: MS_TENANT_ID
+        sync: false
+      - key: MS_CLIENT_ID
+        sync: false
+      - key: MS_CLIENT_SECRET
+        sync: false
+      - key: MONITORED_MAILBOXES
+        sync: false
+      - key: FORWARD_MAILBOX
+        sync: false
+      - key: OUTLOOK_CATEGORY
+        value: Expert Queue
+      - key: OUTLOOK_CATEGORY_HANDLED
+        value: Expert Queue — Handled
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # The mail poller. Reads each monitored mailbox on a loop and files what's
+  # new. Runs as its own service so a wedged poll can never take the portal
+  # down with it — and so it can be restarted on its own.
+  #
+  # It shares the database with the web service but runs no migrations: the
+  # web service's preDeployCommand owns the schema. Two services racing to
+  # migrate the same database is a bad afternoon.
+  - type: worker
+    name: expert-inbox-poller
+    runtime: python
+    plan: starter
+    region: ohio
+    branch: main
+
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m app.worker
+
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: expert-inbox-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+      - key: POLL_SECONDS
+        value: "60"
+      - key: OUTLOOK_CATEGORY
+        value: Expert Queue
+      - key: OUTLOOK_CATEGORY_HANDLED
+        value: Expert Queue — Handled
+      # Same secrets as the web service. Set them once in a Render environment
+      # group and both services pick them up.
+      - key: MS_TENANT_ID
+        sync: false
+      - key: MS_CLIENT_ID
+        sync: false
+      - key: MS_CLIENT_SECRET
+        sync: false
+      - key: MONITORED_MAILBOXES
+        sync: false
+      - key: FORWARD_MAILBOX
+        sync: false
+
+databases:
+  - name: expert-inbox-db
+    plan: basic-256mb
+    region: ohio
+    postgresMajorVersion: "16"

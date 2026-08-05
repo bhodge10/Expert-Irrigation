@@ -1,0 +1,27 @@
+# secrets
+.env
+
+# Real customer mail. Names, addresses, phone numbers — never commit it.
+# Committed test fixtures live in backend/tests/fixtures/ with the personal
+# details replaced. See docs/decisions.md.
+docs/email examples/
+docs/*.zip
+samples/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.db-journal
+
+# node
+node_modules/
+frontend/dist/
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
