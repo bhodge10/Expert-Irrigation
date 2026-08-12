@@ -6,6 +6,41 @@ worse than no record.
 
 ---
 
+## Render runs a Dockerfile, and render.yaml does not describe production
+
+**Decided:** 2026-08-12 · **Phase:** 1
+
+The live service is a hand-created **Docker** service on the **free** plan,
+built from the `Dockerfile` at the repo root. `render.yaml` describes something
+else entirely — a `python` runtime service named `expert-inbox-queue`, plus a
+worker and a Postgres 16 database, all on paid plans. It has never been applied.
+
+**Why:** the free plan has no background workers, no `preDeployCommand`, and no
+shell. The blueprint can't run there without edits to every service in it.
+Adding a Dockerfile got the thing deployed without committing to ~$21/month
+before anyone had seen it work.
+
+**What it means while in effect:**
+
+- Migrations and the admin bootstrap run at container start from
+  `docker-entrypoint.sh`, not from `preDeployCommand`.
+- The database is SQLite inside the container and is destroyed on every deploy
+  and idle spin-down. The deployed site is a demo, not a system of record.
+- The mail poller (`app/worker.py`) isn't running anywhere. Ingestion is
+  local-only until this changes.
+
+**The trap:** `render.yaml` reads like production and isn't. Anyone changing it
+and pushing will see no effect at all and reasonably conclude Render is broken.
+Left in the repo because it's still the right target — but it is a plan, not a
+description.
+
+**Revisit when:** the queue holds anything anyone would miss. That's the moment
+to apply the blueprint properly: Postgres for persistence, the worker for
+ingestion, and the shell for `manage.py`, which retires the `ADMIN_*`
+bootstrap.
+
+---
+
 ## The app goes live read-only
 
 **Decided:** 2026-08-09 · **Phase:** 2
