@@ -156,25 +156,64 @@ disappears with it.
 
 ### 4b. Define which mailboxes are in scope
 
+We scope by membership of a **mail-enabled security group**, so adding a
+mailbox later is a group membership change, not a cmdlet.
+
+The group: `Service_and_sales_queue@expertsvc.com`. All six mailboxes must be
+**direct** members — `MemberOfGroup` does not evaluate nested groups, so a
+group inside the group silently drops its mailboxes from scope.
+
+The filter wants the group's distinguished name, not its email address:
+
+```powershell
+Get-Group -Identity "Service_and_sales_queue@expertsvc.com" | Format-List Name,DistinguishedName
+```
+
 ```powershell
 New-ManagementScope `
   -Name "Expert Inbox Queue Mailboxes" `
-  -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'craigz@expertsvc.com' -or PrimarySmtpAddress -eq 'megan@expertsvc.com' -or PrimarySmtpAddress -eq 'joyce@expertsvc.com' -or PrimarySmtpAddress -eq 'casey@expertsvc.com' -or PrimarySmtpAddress -eq 'info@expertsvc.com' -or PrimarySmtpAddress -eq 'queue@expertsvc.com'"
+  -RecipientRestrictionFilter "MemberOfGroup -eq '<full DN from Get-Group>'"
 ```
 
-Listing the addresses is verbose but obvious to read a year from now, which is
-worth more than being clever. To change the list later:
+Keep the DN inside the single quotes — DNs contain commas.
+
+(`New-` creates, `Set-ManagementScope` edits one that already exists. Running
+`Set-` first fails with "couldn't be found".)
+
+> The other way is an explicit list, no group involved:
+>
+> ```powershell
+> New-ManagementScope `
+>   -Name "Expert Inbox Queue Mailboxes" `
+>   -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'craigz@expertsvc.com' -or PrimarySmtpAddress -eq 'megan@expertsvc.com' -or PrimarySmtpAddress -eq 'joyce@expertsvc.com' -or PrimarySmtpAddress -eq 'casey@expertsvc.com' -or PrimarySmtpAddress -eq 'info@expertsvc.com' -or PrimarySmtpAddress -eq 'queue@expertsvc.com'"
+> ```
+>
+> Verbose but self-explanatory a year later. Whichever you use, Part 5 is what
+> proves the scope actually contains what you think it does — with a group,
+> an empty or mis-membered group fails silently until then.
+
+### 4c. Grant the permission, scoped
+
+The rollout is staged. **Stage one is read-only** — the app can ingest mail
+into the queue but cannot send, modify, or tag anything. Sending and Outlook
+tagging come later, once the queue has earned some trust
+(see [decisions.md](decisions.md)).
+
+**Stage one — now:**
 
 ```powershell
-Set-ManagementScope -Identity "Expert Inbox Queue Mailboxes" -RecipientRestrictionFilter "<new filter>"
+New-ManagementRoleAssignment `
+  -App "<Application ID>" `
+  -Role "Application Mail.Read" `
+  -CustomResourceScope "Expert Inbox Queue Mailboxes"
 ```
 
-> A mail-enabled security group also works (`MemberOfGroup -eq '<distinguished
-> name>'`), so adding a mailbox becomes a group membership change instead of a
-> cmdlet. It needs the group's full DN from `Get-Group`. For six mailboxes that
-> change once a year, the explicit list is easier to live with.
+While read-only, `OUTLOOK_CATEGORY` must stay **empty** in `.env` — that's the
+switch that stops the app attempting category writes it has no permission for.
+Replying from the portal will fail with a clear error and record nothing;
+that's expected until stage two.
 
-### 4c. Grant the two permissions, scoped
+**Stage two — when ready to send and tag:**
 
 ```powershell
 New-ManagementRoleAssignment `
@@ -186,21 +225,25 @@ New-ManagementRoleAssignment `
   -App "<Application ID>" `
   -Role "Application Mail.Send" `
   -CustomResourceScope "Expert Inbox Queue Mailboxes"
+
+# ReadWrite contains Read; drop the now-redundant grant.
+Get-ManagementRoleAssignment -App "<Application ID>" |
+  Where-Object Role -eq "Application Mail.Read" |
+  Remove-ManagementRoleAssignment
 ```
 
-What each one buys:
+Then do Part 6 (categories) and set `OUTLOOK_CATEGORY` in `.env`.
+
+What each role buys:
 
 | Role | Needed for |
 |---|---|
-| `Application Mail.ReadWrite` | Reading mail, **and** writing the `Expert Queue` category onto it |
+| `Application Mail.Read` | Ingesting mail into the queue |
+| `Application Mail.ReadWrite` | The above, **plus** writing the `Expert Queue` category onto it |
 | `Application Mail.Send` | Sending replies as the mailbox they arrived at |
 
-`Mail.ReadWrite` rather than `Mail.Read` is a deliberate trade for the Outlook
-tagging — see [decisions.md](decisions.md). Drop the Outlook tagging and this
-becomes `Application Mail.Read`, which is the safer grant.
-
-> There's a bundled `Application Mail Full Access` role covering both. Two
-> explicit assignments make the intent legible and let you revoke half.
+> There's a bundled `Application Mail Full Access` role. Explicit assignments
+> make the intent legible and let you revoke pieces separately.
 
 ---
 
@@ -237,6 +280,10 @@ so it tells you the truth immediately. Real API calls do not — see
 
 ## Part 6 — Create the Outlook category
 
+**Skip this while running read-only (stage one of Part 4c).** Tagging needs
+`Application Mail.ReadWrite`, and `OUTLOOK_CATEGORY` stays empty in `.env`
+until that's granted.
+
 The app writes a category named `Expert Queue` onto mail it has picked up. The
 *colour* comes from each mailbox's own category list, so the category has to
 exist there or the label shows up grey.
@@ -271,6 +318,18 @@ differently — it's parsed as a forward to recover the original sender.
 
 On Render these go in the environment group, never in a file.
 
+Then prove it from the app's side:
+
+```powershell
+cd backend
+python manage.py checkgraph
+```
+
+It fetches a token and reads the newest message from each mailbox — nothing
+is written or sent. Every line should say `ok`. A `DENIED` on a mailbox that
+Part 5 said was in scope is almost always the permission cache — wait and
+re-run before changing anything.
+
 ---
 
 ## Troubleshooting
@@ -293,9 +352,24 @@ the RBAC assignment didn't land. Check:
 Get-ManagementRoleAssignment -App "<Application ID>" | Format-Table Name,Role,CustomResourceScope
 ```
 
-You should see two rows, both with `Expert Inbox Queue Mailboxes` in
-`CustomResourceScope`. A blank scope means the app has unscoped access — fix
-that immediately, it's the thing this whole document exists to prevent.
+You should see one row per granted role — just `Application Mail.Read` while
+running read-only, `Mail.ReadWrite` and `Mail.Send` after stage two — every
+one with `Expert Inbox Queue Mailboxes` in `CustomResourceScope`. A blank
+scope means the app has unscoped access — fix that immediately, it's the
+thing this whole document exists to prevent.
+
+---
+
+**`New-ManagementRoleAssignment` says "You don't have access to create,
+change, or remove … you must be assigned a delegating role assignment".**
+Your admin account isn't an *explicit* member of the **Organization
+Management** role group. Global Admin / Exchange Administrator in Entra maps
+into Exchange implicitly, and that implicit membership does not pass this
+check. Add the account explicitly (Exchange admin center → **Roles** →
+**Admin roles** → **Organization Management** → **Assigned** → **Add**, or
+`Add-RoleGroupMember -Identity "Organization Management" -Member <upn>`),
+then `Disconnect-ExchangeOnline` and reconnect — membership is evaluated when
+the session starts.
 
 ---
 

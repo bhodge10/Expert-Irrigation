@@ -45,6 +45,10 @@ MESSAGE_FIELDS = ",".join(
 class GraphError(RuntimeError):
     """A Graph call failed in a way worth surfacing to the operator."""
 
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
 
 class GraphClient:
     def __init__(
@@ -123,6 +127,35 @@ class GraphClient:
         raise GraphError(f"Graph kept failing on {method} {url}")
 
     # --- reading ---------------------------------------------------------
+
+    def check_token(self) -> None:
+        """Fetch a token now rather than on first use.
+
+        Lets `manage.py checkgraph` separate "the credentials are wrong" from
+        "the credentials work but a mailbox is out of scope".
+        """
+        self._access_token()
+
+    def newest_message(self, mailbox: str) -> dict[str, Any] | None:
+        """The newest inbox message, or None for an empty inbox.
+
+        One cheap read that proves the token, the RBAC scope and the mailbox
+        spelling together — the `manage.py checkgraph` probe. Never used for
+        ingestion; the poller reads through delta_messages only.
+        """
+        response = self._request(
+            "GET",
+            f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages",
+            params={"$top": 1, "$select": "subject,from,receivedDateTime"},
+        )
+        if response.status_code >= 400:
+            raise GraphError(
+                f"Reading {mailbox} failed ({response.status_code}): "
+                f"{response.text[:300]}",
+                status=response.status_code,
+            )
+        items = response.json().get("value", [])
+        return items[0] if items else None
 
     def delta_messages(
         self, mailbox: str, delta_link: str | None = None

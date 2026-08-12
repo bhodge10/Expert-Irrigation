@@ -6,9 +6,33 @@ worse than no record.
 
 ---
 
+## The app goes live read-only
+
+**Decided:** 2026-08-09 · **Phase:** 2
+
+Stage one of the Exchange grant is `Application Mail.Read` only. The app can
+ingest mail into the queue; it cannot send, modify, or tag anything.
+`Mail.ReadWrite` (for tagging, below) and `Mail.Send` (for replies) are
+granted later, as stage two in azure-setup.md Part 4c.
+
+**Why:** trust is earned in one direction. A read-only app that misfiles a
+message costs a correction; an app that can send costs a wrong email to a
+customer. Watching the queue fill correctly for a while before granting write
+is cheap insurance, and the upgrade is two cmdlets whenever we're ready.
+
+**What it means while in effect:** `OUTLOOK_CATEGORY` stays empty in `.env`
+(disables tagging writes), and Reply in the portal fails with a clear error
+recording nothing — expected, not a bug.
+
+**Revisit when:** ingestion has run cleanly and the office wants to answer
+from the portal. That's the moment to run stage two and do Part 6.
+
+---
+
 ## Outlook gets tagged when a message is queued
 
-**Decided:** 2026-08-01 · **Phase:** 2
+**Decided:** 2026-08-01 · **Phase:** 2 · **Deferred 2026-08-09** — waits on
+stage two of the read-only rollout above.
 
 The app writes an Outlook **category** onto the source email: `Expert Queue` on
 ingest, swapped to `Expert Queue — Handled` when someone completes it in the

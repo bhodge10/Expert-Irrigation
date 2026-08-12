@@ -8,6 +8,8 @@
     python manage.py deactivate EMAIL        stop a login, keep the history
     python manage.py events                  what the sorting called, and who
                                              corrected it
+    python manage.py checkgraph              prove the Microsoft 365 connection,
+                                             read-only
 
 Migrations are Alembic's job, not this script's:  alembic upgrade head
 """
@@ -20,7 +22,9 @@ from datetime import timedelta
 from sqlalchemy import func
 
 from app.auth import hash_password
+from app.config import settings
 from app.db import SessionLocal, utcnow
+from app.graph import GraphClient, GraphError
 from app.models import ClassificationEvent, Message, Reply, SessionToken, User
 from app.seed_data import MESSAGES, USERS
 
@@ -247,6 +251,76 @@ def cmd_events(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_checkgraph(_: argparse.Namespace) -> int:
+    """Prove the Microsoft 365 connection: a token, then one read per mailbox.
+
+    Read-only — sends nothing, tags nothing, and doesn't touch the poller's
+    delta links. Run it right after finishing docs/azure-setup.md, and again
+    whenever ingestion stops and you don't know why.
+    """
+    missing = [
+        name
+        for name, value in [
+            ("MS_TENANT_ID", settings.ms_tenant_id),
+            ("MS_CLIENT_ID", settings.ms_client_id),
+            ("MS_CLIENT_SECRET", settings.ms_client_secret),
+        ]
+        if not value.strip()
+    ]
+    if missing:
+        print(f"Not configured: {', '.join(missing)} empty or unset in .env.")
+        print("The walkthrough is docs/azure-setup.md.")
+        return 1
+
+    mailboxes = settings.mailbox_list
+    if not mailboxes:
+        print("MONITORED_MAILBOXES is empty — nothing to check.")
+        return 1
+
+    with GraphClient() as graph:
+        try:
+            graph.check_token()
+        except GraphError as exc:
+            print(f"No token: {exc}")
+            return 1
+        print("Token acquired — the credentials are good.\n")
+
+        failed = 0
+        for mailbox in mailboxes:
+            try:
+                newest = graph.newest_message(mailbox)
+            except GraphError as exc:
+                failed += 1
+                if exc.status == 403:
+                    print(
+                        f"  {mailbox:<30} DENIED — not in the RBAC scope, or "
+                        "the permission cache hasn't caught up (up to 2 "
+                        "hours). See docs/azure-setup.md, Part 5."
+                    )
+                elif exc.status == 404:
+                    print(
+                        f"  {mailbox:<30} NOT FOUND — misspelled, or no such "
+                        "mailbox."
+                    )
+                else:
+                    print(f"  {mailbox:<30} FAILED — {exc}")
+                continue
+
+            if newest is None:
+                print(f"  {mailbox:<30} ok (inbox is empty)")
+            else:
+                subject = (newest.get("subject") or "(no subject)")[:48]
+                print(f"  {mailbox:<30} ok — newest: {subject}")
+
+    print()
+    if failed:
+        print(f"{failed} of {len(mailboxes)} mailbox(es) unreachable.")
+        return 1
+    print("All mailboxes reachable. Reading is proven; sending can only be")
+    print("proven by sending — the first real reply from the portal is that test.")
+    return 0
+
+
 def cmd_users(_: argparse.Namespace) -> int:
     db = SessionLocal()
     try:
@@ -306,6 +380,11 @@ def main() -> int:
 
     p_ls = sub.add_parser("users", help="list users")
     p_ls.set_defaults(func=cmd_users)
+
+    p_cg = sub.add_parser(
+        "checkgraph", help="prove the Microsoft 365 connection, read-only"
+    )
+    p_cg.set_defaults(func=cmd_checkgraph)
 
     args = parser.parse_args()
     return args.func(args)
