@@ -12,12 +12,14 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .classify import UNSORTED, Classification, classify_new
 from .config import settings
 from .db import utcnow
 from .graph import GraphClient, GraphError
 from .mail.normalize import NormalizedMessage, normalize
 from .mail.rules import Action, decide
 from .models import (
+    HANDLED,
     KIND_MODEL,
     OPEN,
     OTHER,
@@ -107,13 +109,20 @@ def _user_for_email(db: Session, email: str) -> User | None:
     )
 
 
-def create_message(db: Session, msg: NormalizedMessage) -> Message:
-    """Write a new queue item.
+def create_message(
+    db: Session,
+    msg: NormalizedMessage,
+    classification: Classification | None = None,
+) -> Message:
+    """Write a new queue item, sorted by whatever the classifier decided.
 
-    Everything lands in Other at zero confidence for now — Phase 3 replaces
-    this with the classifier. Filing it as Other rather than guessing means
-    nothing looks confidently sorted when nothing has been sorted at all.
+    No classification (or a failed one) files it as unsorted Other at zero
+    confidence — nothing looks confidently sorted when nothing has been
+    sorted at all. A repeatedly-rejected sender arrives already handled, so
+    known noise never hits the open queue.
     """
+    c = classification or UNSORTED
+
     reasons: list[str] = []
     if msg.form_type:
         reasons.append(f"Submitted through the website ({msg.form_type}) form")
@@ -121,8 +130,7 @@ def create_message(db: Session, msg: NormalizedMessage) -> Message:
         reasons.append(f"Forwarded to the queue by {msg.forwarded_by}")
     if msg.needs_review:
         reasons.append(msg.review_reason)
-    if not reasons:
-        reasons.append("Not sorted yet — automatic classification arrives in Phase 3")
+    reasons.extend(c.reasons)
 
     record = Message(
         graph_message_id=msg.graph_message_id or None,
@@ -135,11 +143,12 @@ def create_message(db: Session, msg: NormalizedMessage) -> Message:
         body_html=msg.body_html,
         body_clean=msg.body_clean,
         received_at=_parse_received(msg.received_at),
-        queue=OTHER,
-        confidence=0,
-        is_urgent=False,
+        queue=c.queue,
+        confidence=c.confidence,
+        is_urgent=c.is_urgent,
         classification_reasons=reasons,
-        status=OPEN,
+        status=HANDLED if c.auto_handle else OPEN,
+        handled_at=utcnow() if c.auto_handle else None,
         source=msg.source,
         forwarded_by=msg.forwarded_by,
         form_type=msg.form_type,
@@ -150,14 +159,13 @@ def create_message(db: Session, msg: NormalizedMessage) -> Message:
     db.flush()
 
     # Every automatic classification is logged, same as a human correction.
-    # Phase 3 fills in a real queue and confidence; the shape doesn't change.
     db.add(
         ClassificationEvent(
             message_id=record.id,
             from_queue=None,
-            to_queue=OTHER,
+            to_queue=c.queue,
             changed_by=None,
-            confidence=0,
+            confidence=c.confidence,
             kind=KIND_MODEL,
         )
     )
@@ -233,9 +241,29 @@ def ingest_one(
             existing.handled_by = None
         return "note"
 
-    record = create_message(db, msg)
+    # Classify BEFORE the insert: the model call takes seconds, and holding a
+    # SQLite write transaction across it locks the portal out (the first-sync
+    # lesson). Reads don't block anyone under WAL.
+    classification = classify_new(
+        db,
+        mailbox=mailbox,
+        from_name=msg.from_name or msg.from_email,
+        from_email=msg.from_email,
+        subject=msg.subject or "(no subject)",
+        body=msg.body_clean or msg.body_text,
+    )
+
+    record = create_message(db, msg, classification)
     _tag_in_outlook(graph, mailbox, msg.graph_message_id)
-    log.info("queued #%s from %s (%s)", record.id, msg.from_email, mailbox)
+    log.info(
+        "queued #%s from %s (%s) -> %s at %d%% [%s]",
+        record.id,
+        msg.from_email,
+        mailbox,
+        classification.queue,
+        classification.confidence,
+        classification.source,
+    )
     return "create"
 
 

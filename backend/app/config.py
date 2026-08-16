@@ -67,6 +67,21 @@ class Settings(BaseSettings):
     # cutoff the queue floods with years-old mail. 0 turns the cutoff off.
     ingest_max_age_days: int = 7
 
+    # --- Phase 3: Classification -----------------------------------------
+    anthropic_api_key: str = ""
+
+    # The model that sorts mail. Current model IDs and pricing:
+    # https://platform.claude.com/docs/en/about-claude/models/overview
+    classify_model: str = "claude-opus-5"
+
+    # The sorting rules, editable without touching Python. Read on every
+    # classification, so edits take effect on the next email.
+    classify_prompt_path: Path = BACKEND_DIR / "prompts" / "classify.md"
+
+    @property
+    def classification_configured(self) -> bool:
+        return bool(self.anthropic_api_key.strip())
+
     def _csv(self, raw: str) -> list[str]:
         return [item.strip().lower() for item in raw.split(",") if item.strip()]
 

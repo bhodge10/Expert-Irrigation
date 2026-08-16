@@ -235,7 +235,28 @@ to the full-history walk — accepted for tiny mailboxes only.
 
 ## The sorting learns from corrections, but nothing tunes itself silently
 
-**Decided:** 2026-08-01 · **Phase:** 3
+**Decided:** 2026-08-01 · **Phase:** 3 · **Built 2026-08-16** — how the three
+mechanisms landed:
+
+1. **Sender rules are derived from the feedback trail, not a separate table.**
+   The latest human verdict on a sender IS the rule: one correction or
+   confirmation files that sender's next mail to the same queue at 100%
+   confidence with no model call; two "Not valid" verdicts auto-file the
+   sender's mail as handled Other, so known noise never hits the open queue
+   (one click could be a slip; two is a policy). Visible and editable by
+   definition — the rule is the history the portal already shows, and working
+   a message differently rewrites it.
+2. **Few-shot:** the last 6 human verdicts (corrections, confirmations, and
+   rejections alike) ride along in every classify call as worked examples.
+3. **The prompt is `backend/prompts/classify.md`**, read fresh on every
+   classification — Craig edits it, saves, and the next email sorts by the
+   new rules.
+
+The model is `claude-opus-5` (config `CLASSIFY_MODEL`), called once per new
+message at ingest, before the database insert so the API call never holds the
+SQLite write lock. Any failure — no API key, refusal, timeout — files the
+message unsorted in Other at 0%, exactly like Phase 2. Backfill:
+`python manage.py classify`.
 
 You cannot fine-tune Claude — Anthropic doesn't offer it. "Getting more
 accurate" means three things, and we're doing all three:

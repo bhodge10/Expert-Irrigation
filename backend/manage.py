@@ -10,6 +10,8 @@
                                              corrected it
     python manage.py checkgraph              prove the Microsoft 365 connection,
                                              read-only
+    python manage.py classify                sort the unclassified open messages
+                                             through the Claude model
 
 Migrations are Alembic's job, not this script's:  alembic upgrade head
 """
@@ -321,6 +323,89 @@ def cmd_checkgraph(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_classify(args: argparse.Namespace) -> int:
+    """Backfill: run the classifier over open messages still at 0 confidence.
+
+    New mail classifies at ingest; this catches everything that arrived
+    before the classifier existed (or while it was failing). Messages a
+    human has already judged are left alone — their verdict outranks the
+    model's. Commits one message at a time so an interrupted run keeps its
+    progress.
+    """
+    if not settings.classification_configured:
+        print("ANTHROPIC_API_KEY is empty — set it in .env first.")
+        return 1
+
+    from app.classify import classify_new
+    from app.models import HANDLED, KIND_MODEL, OPEN
+
+    db = SessionLocal()
+    try:
+        candidates = (
+            db.query(Message)
+            .filter(Message.status == OPEN, Message.confidence == 0)
+            .order_by(Message.id)
+            .all()
+        )
+
+        done = skipped = failed = 0
+        for message in candidates:
+            if args.limit and done + failed >= args.limit:
+                break
+            if any(e.changed_by is not None for e in message.classification_events):
+                skipped += 1
+                continue
+
+            c = classify_new(
+                db,
+                mailbox=message.mailbox,
+                from_name=message.from_name,
+                from_email=message.from_email,
+                subject=message.subject,
+                body=message.body_clean or message.body_text,
+            )
+            if c.source == "unsorted":
+                failed += 1
+                print(f"#{message.id:<4} FAILED — left unsorted   {message.subject[:48]}")
+                continue
+
+            from_queue = message.queue
+            message.queue = c.queue
+            message.confidence = c.confidence
+            message.is_urgent = c.is_urgent
+            message.classification_reasons = c.reasons
+            if c.auto_handle:
+                message.status = HANDLED
+                message.handled_at = utcnow()
+
+            db.add(
+                ClassificationEvent(
+                    message_id=message.id,
+                    from_queue=from_queue,
+                    to_queue=c.queue,
+                    changed_by=None,
+                    confidence=c.confidence,
+                    kind=KIND_MODEL,
+                )
+            )
+            db.commit()
+            done += 1
+            urgent = " URGENT" if c.is_urgent else ""
+            handled = " (auto-handled)" if c.auto_handle else ""
+            print(
+                f"#{message.id:<4} -> {c.queue:<8} {c.confidence:>3}%{urgent}"
+                f"{handled}  [{c.source}]  {message.subject[:44]}"
+            )
+
+        print(
+            f"\n{done} classified, {failed} failed, {skipped} already judged "
+            f"by a human, {len(candidates) - done - failed - skipped} not reached."
+        )
+        return 1 if failed and not done else 0
+    finally:
+        db.close()
+
+
 def cmd_users(_: argparse.Namespace) -> int:
     db = SessionLocal()
     try:
@@ -385,6 +470,14 @@ def main() -> int:
         "checkgraph", help="prove the Microsoft 365 connection, read-only"
     )
     p_cg.set_defaults(func=cmd_checkgraph)
+
+    p_cl = sub.add_parser(
+        "classify", help="sort unclassified open messages with the Claude model"
+    )
+    p_cl.add_argument(
+        "--limit", type=int, default=0, help="stop after this many (0 = all)"
+    )
+    p_cl.set_defaults(func=cmd_classify)
 
     args = parser.parse_args()
     return args.func(args)

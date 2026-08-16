@@ -6,6 +6,7 @@
 # whatever shipped that week.
 
 alembic==1.18.5
+anthropic==0.79.0          # the classifier — Phase 3
 bcrypt==5.0.0
 fastapi==0.141.1
 httpx==0.28.1              # talking to Microsoft Graph
