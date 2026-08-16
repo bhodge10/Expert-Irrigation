@@ -23,7 +23,6 @@ from .models import (
     HANDLED,
     KIND_MODEL,
     OPEN,
-    OTHER,
     SOURCE_FORWARD,
     ClassificationEvent,
     MailboxState,

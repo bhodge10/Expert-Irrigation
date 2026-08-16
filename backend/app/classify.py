@@ -30,10 +30,11 @@ from sqlalchemy.orm import Session
 
 from .config import settings
 from .models import (
+    IGNORED,
     KIND_CONFIRMATION,
     KIND_CORRECTION,
     KIND_REJECTION,
-    OTHER,
+    UNDETERMINED,
     ClassificationEvent,
     Message,
 )
@@ -70,7 +71,7 @@ class Classification:
 
 
 UNSORTED = Classification(
-    queue=OTHER,
+    queue=UNDETERMINED,
     confidence=0,
     is_urgent=False,
     reasons=[UNSORTED_REASON],
@@ -79,9 +80,9 @@ UNSORTED = Classification(
 
 
 class _ModelVerdict(BaseModel):
-    """The strict shape the model must return — see CLAUDE-CODE-BRIEF.md."""
+    """The strict shape the model must return."""
 
-    queue: Literal["service", "sales", "other"]
+    queue: Literal["service", "sales", "ignored", "undetermined"]
     confidence: int = Field(ge=0, le=100)
     is_urgent: bool
     reasons: list[str] = Field(min_length=1, max_length=4)
@@ -122,7 +123,7 @@ def sender_verdict(db: Session, from_email: str) -> Classification | None:
 
     if latest.kind == KIND_REJECTION and len(rejections) >= REJECTIONS_TO_AUTOFILE:
         return Classification(
-            queue=OTHER,
+            queue=IGNORED,
             confidence=100,
             is_urgent=False,
             reasons=[
@@ -195,8 +196,8 @@ def few_shot_examples(db: Session, limit: int = FEW_SHOT_LIMIT) -> str:
             )
         elif event.kind == KIND_REJECTION:
             verdict = (
-                "The office marked this as not a real request (noise). "
-                "Correct answer: queue=other, not urgent."
+                "The office marked this as noise nobody needed to read. "
+                "Correct answer: queue=ignored, not urgent."
             )
         else:  # confirmation
             verdict = f"The office worked this in {event.to_queue} — the sort was right."
@@ -274,11 +275,25 @@ def model_verdict(
     verdict = _call_model(_system_prompt(), user_content)
     if verdict is None:
         return None
+
+    queue = verdict.queue
+    reasons = list(verdict.reasons)
+    # The confidence floor is enforced in code, not just asked for in the
+    # prompt: below it, the guess isn't a filing — the message waits for a
+    # human, with the model's leaning preserved as a reason.
+    floor = settings.classify_confidence_floor
+    if queue != UNDETERMINED and verdict.confidence < floor:
+        reasons.append(
+            f"Leaned {queue} at {verdict.confidence}% — below the {floor}% "
+            "bar, so a human decides"
+        )
+        queue = UNDETERMINED
+
     return Classification(
-        queue=verdict.queue,
+        queue=queue,
         confidence=verdict.confidence,
         is_urgent=verdict.is_urgent,
-        reasons=list(verdict.reasons),
+        reasons=reasons,
         source="model",
     )
 

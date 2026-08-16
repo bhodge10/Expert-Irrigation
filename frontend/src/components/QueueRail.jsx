@@ -1,6 +1,6 @@
 import { QUEUE_META } from "../format";
 
-const QUEUE_ORDER = ["all", "service", "sales", "other"];
+const QUEUE_ORDER = ["all", "service", "sales", "undetermined", "ignored"];
 const SCOPES = [
   ["open", "Open"],
   ["mine", "Mine"],
@@ -40,8 +40,10 @@ export default function QueueRail({ queue, scope, counts, onQueue, onScope }) {
 
       <div className="eq-legend">
         <b>Sorting</b>
-        Mail is read as it arrives in Craig, Megan, Joyce and Casey's inboxes, then
-        dropped into a queue. Wrong call? Move it — the correction is recorded.
+        Mail is read as it arrives in Craig, Megan and Joyce's inboxes, then
+        dropped into a queue. Undetermined waits for a human call; Ignored is
+        mail nobody needs to answer. Wrong call? Move it — the correction is
+        recorded and the sorting learns.
       </div>
     </nav>
   );

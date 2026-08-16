@@ -19,6 +19,7 @@ from ..db import get_db, utcnow
 from ..graph import GraphClient, GraphError
 from ..models import (
     HANDLED,
+    IGNORED,
     KIND_CONFIRMATION,
     KIND_CORRECTION,
     KIND_REJECTION,
@@ -82,12 +83,16 @@ def _confirm_sorting(db: Session, message: Message, user: User) -> None:
 def list_messages(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
-    queue: str = Query("all", pattern="^(all|service|sales|other)$"),
+    queue: str = Query("all", pattern="^(all|service|sales|undetermined|ignored)$"),
     scope: str = Query("open", pattern="^(open|mine|done)$"),
 ) -> MessageListOut:
     q = db.query(Message)
 
-    if queue != "all":
+    if queue == "all":
+        # "All" means all the mail worth a look — Ignored stays in its own
+        # bucket, which is the whole point of having it.
+        q = q.filter(Message.queue != IGNORED)
+    else:
         q = q.filter(Message.queue == queue)
 
     if scope == "done":
@@ -114,10 +119,12 @@ def list_messages(
             open_by_queue[name] = count
 
     counts = QueueCounts(
-        all=sum(open_by_queue.values()),
+        # "all" is the actionable open mail; Ignored is counted separately.
+        all=sum(n for name, n in open_by_queue.items() if name != IGNORED),
         service=open_by_queue["service"],
         sales=open_by_queue["sales"],
-        other=open_by_queue["other"],
+        undetermined=open_by_queue["undetermined"],
+        ignored=open_by_queue["ignored"],
     )
 
     return MessageListOut(
@@ -399,13 +406,14 @@ def reject_message(
             ClassificationEvent(
                 message_id=message.id,
                 from_queue=message.queue,
-                to_queue=message.queue,
+                to_queue=IGNORED,
                 changed_by=user.id,
                 confidence=message.confidence,
                 kind=KIND_REJECTION,
             )
         )
 
+    message.queue = IGNORED
     message.status = HANDLED
     message.handled_at = utcnow()
     message.handled_by = user.id

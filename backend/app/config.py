@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # classification, so edits take effect on the next email.
     classify_prompt_path: Path = BACKEND_DIR / "prompts" / "classify.md"
 
+    # A service/sales/ignored call below this confidence isn't a filing —
+    # the message goes to Undetermined and a human decides.
+    classify_confidence_floor: int = 90
+
     # Same idea for reply drafting: Craig's voice, the hard rules, the
     # sign-off. Read on every draft.
     draft_prompt_path: Path = BACKEND_DIR / "prompts" / "draft.md"

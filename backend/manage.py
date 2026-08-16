@@ -343,12 +343,10 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
     db = SessionLocal()
     try:
-        candidates = (
-            db.query(Message)
-            .filter(Message.status == OPEN, Message.confidence == 0)
-            .order_by(Message.id)
-            .all()
-        )
+        q = db.query(Message).filter(Message.status == OPEN)
+        if not args.all:
+            q = q.filter(Message.confidence == 0)
+        candidates = q.order_by(Message.id).all()
 
         done = skipped = failed = 0
         for message in candidates:
@@ -537,6 +535,12 @@ def main() -> int:
     )
     p_cl.add_argument(
         "--limit", type=int, default=0, help="stop after this many (0 = all)"
+    )
+    p_cl.add_argument(
+        "--all",
+        action="store_true",
+        help="re-sort already-classified open messages too (humans' verdicts "
+        "are still never overridden)",
     )
     p_cl.set_defaults(func=cmd_classify)
 

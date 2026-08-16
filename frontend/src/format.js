@@ -3,7 +3,8 @@
 export const QUEUE_META = {
   service: { label: "Service", cls: "svc", tag: "t-svc", dot: "var(--green)" },
   sales: { label: "Sales", cls: "sal", tag: "t-sal", dot: "var(--blue)" },
-  other: { label: "Other", cls: "oth", tag: "t-oth", dot: "var(--slate)" },
+  undetermined: { label: "Undetermined", cls: "oth", tag: "t-oth", dot: "var(--slate)" },
+  ignored: { label: "Ignored", cls: "oth", tag: "t-oth", dot: "var(--muted)" },
 };
 
 /* Today shows a clock time, yesterday says so, anything older shows a date.

@@ -97,10 +97,12 @@ class MessageDetailOut(MessageOut):
 
 
 class QueueCounts(BaseModel):
+    # "all" excludes ignored — that bucket exists to stay out of the way.
     all: int
     service: int
     sales: int
-    other: int
+    undetermined: int
+    ignored: int
 
 
 class MessageListOut(BaseModel):

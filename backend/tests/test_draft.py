@@ -187,7 +187,7 @@ def test_service_mail_is_drafted_at_ingest(db, monkeypatch):
 
 
 def test_other_mail_is_not_drafted_at_ingest(db, monkeypatch):
-    c = Classification(queue="other", confidence=95, is_urgent=False, reasons=["x"], source="model")
+    c = Classification(queue="undetermined", confidence=95, is_urgent=False, reasons=["x"], source="model")
     assert _ingest_with(db, monkeypatch, c) == []
     assert db.query(Message).one().draft_reply is None
 

@@ -62,7 +62,7 @@ def add_mail(db, from_email, subject="Sprinkler question", body="Zone 3 is stuck
         body_text=body,
         body_clean=body,
         received_at=utcnow(),
-        queue="other",
+        queue="undetermined",
         confidence=0,
     )
     db.add(message)
@@ -70,7 +70,7 @@ def add_mail(db, from_email, subject="Sprinkler question", body="Zone 3 is stuck
     return message
 
 
-def add_verdict(db, message, kind, to_queue="other", from_queue="other"):
+def add_verdict(db, message, kind, to_queue="undetermined", from_queue="undetermined"):
     joyce = db.execute(select(User)).scalars().first()
     db.add(
         ClassificationEvent(
@@ -120,7 +120,7 @@ def test_two_rejections_auto_file_the_sender(db):
 
     c = sender_verdict(db, VENDOR)
     assert c is not None
-    assert c.queue == "other"
+    assert c.queue == "ignored"
     assert c.auto_handle
     assert "not valid" in c.reasons[0]
 
@@ -142,7 +142,7 @@ def test_few_shot_examples_render_the_feedback(db):
     assert "Bid for 12 lots" in text
     assert "corrected it to sales" in text
     assert "50% off mulch" in text
-    assert "not a real request" in text
+    assert "queue=ignored" in text
 
 
 def test_no_feedback_means_no_example_block(db):
@@ -160,7 +160,7 @@ def test_unconfigured_classifier_files_unsorted(db, monkeypatch):
         body="Water everywhere.",
     )
     assert c.source == "unsorted"
-    assert c.queue == "other"
+    assert c.queue == "undetermined"
     assert c.confidence == 0
     assert c.reasons == [UNSORTED_REASON]
 
@@ -191,7 +191,7 @@ def test_model_verdict_is_applied(db, monkeypatch):
         "_call_model",
         lambda system, user: classify._ModelVerdict(
             queue="service",
-            confidence=88,
+            confidence=95,
             is_urgent=True,
             reasons=["Active leak at an existing installation"],
         ),
@@ -207,9 +207,37 @@ def test_model_verdict_is_applied(db, monkeypatch):
     )
     assert c.source == "model"
     assert c.queue == "service"
-    assert c.confidence == 88
+    assert c.confidence == 95
     assert c.is_urgent
     assert c.reasons == ["Active leak at an existing installation"]
+
+
+def test_below_the_confidence_floor_goes_to_undetermined(db, monkeypatch):
+    """A 72% service guess isn't a filing — a human decides, with the
+    model's leaning preserved as a reason."""
+    monkeypatch.setattr(settings, "anthropic_api_key", "test-key", raising=False)
+    monkeypatch.setattr(
+        classify,
+        "_call_model",
+        lambda system, user: classify._ModelVerdict(
+            queue="service",
+            confidence=72,
+            is_urgent=False,
+            reasons=["Might be a repair"],
+        ),
+    )
+
+    c = classify_new(
+        db,
+        mailbox="craigz@expertsvc.com",
+        from_name="Dana",
+        from_email=CUSTOMER,
+        subject="Transformer humming",
+        body="Half the run is out, is it time to replace it?",
+    )
+    assert c.queue == "undetermined"
+    assert c.confidence == 72
+    assert any("Leaned service" in r for r in c.reasons)
 
 
 def test_a_model_crash_files_unsorted_instead_of_raising(db, monkeypatch):
@@ -263,7 +291,7 @@ def test_ingested_mail_from_a_rejected_sender_arrives_handled(db, monkeypatch):
     record = create_message(db, msg, c)
 
     assert record.status == "handled"
-    assert record.queue == "other"
+    assert record.queue == "ignored"
     event = record.classification_events[0]
     assert event.kind == KIND_MODEL
     assert event.changed_by is None

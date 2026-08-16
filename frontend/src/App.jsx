@@ -7,7 +7,7 @@ import MessageList from "./components/MessageList";
 import QueueRail from "./components/QueueRail";
 import { QUEUE_META } from "./format";
 
-const EMPTY_COUNTS = { all: 0, service: 0, sales: 0, other: 0 };
+const EMPTY_COUNTS = { all: 0, service: 0, sales: 0, undetermined: 0, ignored: 0 };
 
 export default function App() {
   const [me, setMe] = useState(null);

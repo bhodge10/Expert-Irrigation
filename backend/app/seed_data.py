@@ -105,7 +105,7 @@ MESSAGES = [
             "to the following week? Any morning works except Wednesday.\n\n"
             "Thanks,\nMarcus"
         ),
-        "queue": "other",
+        "queue": "undetermined",
         "confidence": 88,
         "is_urgent": False,
         "classification_reasons": [
@@ -177,7 +177,7 @@ MESSAGES = [
             "Could you send it over?\n\n"
             "Thank you,\nPriya Raghavan"
         ),
-        "queue": "other",
+        "queue": "undetermined",
         "confidence": 92,
         "is_urgent": False,
         "classification_reasons": [
@@ -224,7 +224,7 @@ MESSAGES = [
             "14822?\n\n"
             "Bill Hoffman"
         ),
-        "queue": "other",
+        "queue": "undetermined",
         "confidence": 79,
         "is_urgent": False,
         "classification_reasons": [

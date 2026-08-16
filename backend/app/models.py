@@ -28,11 +28,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base, utcnow
 
-# queue values
+# queue values. Service and sales are confident, dispatchable work. Anything
+# the sorter can't confidently place — or real mail that's neither, like a
+# billing question — waits in undetermined for a human. Ignored is mail the
+# sorter is confident nobody needs to read or answer (marketing, receipts,
+# automated notices); visible and reviewable, never deleted.
 SERVICE = "service"
 SALES = "sales"
-OTHER = "other"
-QUEUES = (SERVICE, SALES, OTHER)
+UNDETERMINED = "undetermined"
+IGNORED = "ignored"
+QUEUES = (SERVICE, SALES, UNDETERMINED, IGNORED)
 
 # status values
 OPEN = "open"
@@ -126,7 +131,7 @@ class Message(Base):
     attachment_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     attachment_names: Mapped[list[str]] = mapped_column(JSON, default=list)
 
-    queue: Mapped[str] = mapped_column(String(16), index=True, default=OTHER)
+    queue: Mapped[str] = mapped_column(String(16), index=True, default=UNDETERMINED)
     confidence: Mapped[int] = mapped_column(Integer, default=0)  # 0-100
     is_urgent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     classification_reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
