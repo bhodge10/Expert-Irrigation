@@ -8,7 +8,12 @@ worse than no record.
 
 ## Render runs a Dockerfile, and render.yaml does not describe production
 
-**Decided:** 2026-08-12 · **Phase:** 1
+**Decided:** 2026-08-12 · **Phase:** 1 · **SUPERSEDED 2026-08-16** — the
+blueprint was applied: `render.yaml` now IS production (web + worker +
+Postgres 16, ~$20/month, walkthrough in render-deploy.md). The trap below
+is closed; the free Docker demo service should be deleted, and the laptop
+no longer runs anything. The `Dockerfile` remains only as a local-dev
+convenience. The entry is kept for the reasoning trail.
 
 The live service is a hand-created **Docker** service on the **free** plan,
 built from the `Dockerfile` at the repo root. `render.yaml` describes something
