@@ -13,7 +13,7 @@ Budget 45 minutes the first time.
 
 ## What you're building
 
-The portal reads mail from five mailboxes and sends replies as them. Rather
+The portal reads mail from three mailboxes and sends replies as them. Rather
 than giving it access to the whole tenant and hoping, access is granted through
 **Exchange Online RBAC**, which ties three things together:
 
@@ -24,8 +24,8 @@ than giving it access to the whole tenant and hoping, access is granted through
 ```
 
 An app with `Mail.ReadWrite` and no scope can read and delete mail for everyone
-in the company. The same app with a scope can only touch the five mailboxes you
-named.
+in the company. The same app with a scope can only touch the three mailboxes
+you named.
 
 ### The one thing people get wrong
 
@@ -33,7 +33,7 @@ named.
 
 If you consent `Mail.ReadWrite` on the app registration *and* create a scoped
 RBAC assignment, you get the union of the two — and the union is unscoped. The
-app would have the whole tenant while you believed it had five mailboxes.
+app would have the whole tenant while you believed it had three mailboxes.
 
 This is the mistake a careful person makes by doing both "to be safe."
 
@@ -59,16 +59,19 @@ You need:
 
 Global Administrator covers all of it if that's simpler.
 
-The five mailboxes, plus the forwarding address:
+The three mailboxes:
 
 | Mailbox | Why |
 |---|---|
 | `craigz@expertsvc.com` | monitored |
-| `megan@expertsvc.com` | monitored |
+| `megank@expertsvc.com` | monitored |
 | `joyce@expertsvc.com` | monitored |
-| `casey@expertsvc.com` | monitored |
-| `info@expertsvc.com` | monitored |
-| `queue@expertsvc.com` | staff forward strays here — create it if it doesn't exist |
+
+> **Reconciled against the tenant 2026-08-15.** Earlier drafts listed
+> `megan@` (the address is actually `megank@`), plus `casey@` and `info@`
+> (neither exists in the tenant) and a `queue@` forwarding mailbox (never
+> created — the forwarding channel is deferred, see decisions.md, and
+> `FORWARD_MAILBOX` stays empty in `.env`).
 
 ---
 
@@ -159,8 +162,12 @@ disappears with it.
 We scope by membership of a **mail-enabled security group**, so adding a
 mailbox later is a group membership change, not a cmdlet.
 
-The group: `Service_and_sales_queue@expertsvc.com`. All six mailboxes must be
-**direct** members — `MemberOfGroup` does not evaluate nested groups, so a
+The group: `Service_and_sales_queue@expertsvc.com`. Every monitored mailbox
+must be a **direct** member — and *only* the monitored mailboxes: membership
+IS the scope, so anyone else in the group is mail the app can read. (Found the
+hard way 2026-08-15 — the group had accumulated five extra members that had to
+be pruned.) Note `MemberOfGroup` does not evaluate nested groups, so a
+group inside the group silently drops its mailboxes from scope. — `MemberOfGroup` does not evaluate nested groups, so a
 group inside the group silently drops its mailboxes from scope.
 
 The filter wants the group's distinguished name, not its email address:
@@ -185,7 +192,7 @@ Keep the DN inside the single quotes — DNs contain commas.
 > ```powershell
 > New-ManagementScope `
 >   -Name "Expert Inbox Queue Mailboxes" `
->   -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'craigz@expertsvc.com' -or PrimarySmtpAddress -eq 'megan@expertsvc.com' -or PrimarySmtpAddress -eq 'joyce@expertsvc.com' -or PrimarySmtpAddress -eq 'casey@expertsvc.com' -or PrimarySmtpAddress -eq 'info@expertsvc.com' -or PrimarySmtpAddress -eq 'queue@expertsvc.com'"
+>   -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'craigz@expertsvc.com' -or PrimarySmtpAddress -eq 'megank@expertsvc.com' -or PrimarySmtpAddress -eq 'joyce@expertsvc.com'"
 > ```
 >
 > Verbose but self-explanatory a year later. Whichever you use, Part 5 is what
@@ -264,8 +271,20 @@ Read the **InScope** column:
 
 | Mailbox | Expected |
 |---|---|
-| The six above | `True` |
+| The three above | `True` |
 | Anyone else | `False` |
+
+A quick loop for the positive side:
+
+```powershell
+"craigz","megank","joyce" | ForEach-Object {
+  Test-ServicePrincipalAuthorization -Identity "<Application ID>" -Resource "$_@expertsvc.com"
+} | Format-Table Identity,InScope
+```
+
+Note the errors it can throw: `Couldn't find object` means the address doesn't
+resolve to any recipient in the tenant at all — a typo or a mailbox that
+doesn't exist — which is a different failure from `InScope False`.
 
 **If an out-of-scope mailbox comes back `True`**, the app has an unscoped grant
 somewhere. Almost always this means mail permissions were consented on the app
@@ -291,7 +310,7 @@ exist there or the label shows up grey.
 Creating it via the API would need a third permission (`MailboxSettings.ReadWrite`)
 for something you do once. Do it by hand instead — about two minutes.
 
-In Outlook, **for each of the six mailboxes**:
+In Outlook, **for each of the three mailboxes**:
 
 1. Right-click any message → **Categorize** → **All Categories**
 2. **New** → name it exactly `Expert Queue` → pick a colour (green matches the
@@ -309,12 +328,15 @@ The name must match exactly, em dash and all. Copy-paste it rather than typing.
 MS_TENANT_ID=<Directory (tenant) ID from Part 1>
 MS_CLIENT_ID=<Application (client) ID from Part 1>
 MS_CLIENT_SECRET=<the Value from Part 2>
-MONITORED_MAILBOXES=craigz@expertsvc.com,megan@expertsvc.com,joyce@expertsvc.com,casey@expertsvc.com,info@expertsvc.com
-FORWARD_MAILBOX=queue@expertsvc.com
+MONITORED_MAILBOXES=craigz@expertsvc.com,megank@expertsvc.com,joyce@expertsvc.com
+FORWARD_MAILBOX=
 ```
 
-`queue@` is listed separately because mail arriving there is treated
-differently — it's parsed as a forward to recover the original sender.
+`FORWARD_MAILBOX` stays empty: the `queue@` staff-forwarding mailbox was
+deferred on 2026-08-15 (it was never created — see decisions.md). If it's
+revived later, create the mailbox, add it to the scoping group as a direct
+member, and set `FORWARD_MAILBOX=queue@expertsvc.com` — mail arriving there is
+parsed as a forward to recover the original sender.
 
 On Render these go in the environment group, never in a file.
 

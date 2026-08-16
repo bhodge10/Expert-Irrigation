@@ -78,10 +78,10 @@ Seeing a tag appear on mail that's already been dealt with is what buys that
 trust in month one.
 
 **What it costs:** the app needs `Mail.ReadWrite` instead of `Mail.Read` — so
-it can modify and delete mail in the five scoped mailboxes, not just read it.
+it can modify and delete mail in the scoped mailboxes, not just read it.
 That's a real increase in what a leaked client secret would allow. Accepted
-because the Exchange RBAC scope (below) contains it to five mailboxes, and
-because rotating the secret is cheap.
+because the Exchange RBAC scope (below) contains it to the monitored
+mailboxes, and because rotating the secret is cheap.
 
 **Deliberately not doing:** granting `MailboxSettings.ReadWrite` so the app can
 create the colored category itself. That's a third permission for a task you do
@@ -95,7 +95,13 @@ decoration and dropping back to `Mail.Read` is a real security improvement.
 
 ## Two ways in for mail that misses the queue
 
-**Decided:** 2026-08-01 · **Phase:** 2
+**Decided:** 2026-08-01 · **Phase:** 2 · **Forwarding half deferred 2026-08-15**
+— `queue@` was never created, and when the monitored set was reconciled against
+the tenant (see the next entry) it was dropped from stage one rather than
+created. `FORWARD_MAILBOX` stays empty, which disables the forward-parsing path
+cleanly. The "New request" button is unaffected. Revive by creating the
+mailbox, adding it to the scoping group as a direct member, and setting
+`FORWARD_MAILBOX`.
 
 Both:
 
@@ -118,6 +124,31 @@ with the real customer buried in the body. The ingester parses the original
 sender back out of the forward block. It will not be perfect across every mail
 client. **Rule: if parsing fails, still create the queue item using the
 forwarder, flagged for a human.** Never drop a message on the floor.
+
+---
+
+## Three mailboxes are monitored: craigz, megank, joyce
+
+**Decided:** 2026-08-15 · **Phase:** 2 · **Supersedes the brief's mailbox list**
+
+The monitored set is `craigz@`, `megank@`, `joyce@` (all `expertsvc.com`).
+
+**Why:** the brief's list turned out to be partly fictional when checked
+against the live tenant during Part 5 verification. `megan@` is actually
+`megank@`; `casey@` and `info@` don't exist as recipients at all; `queue@` was
+never created (now deferred — see "Two ways in", above). Meanwhile the scoping
+group had accumulated five members nobody intended the app to read
+(`margaret.greer@` — a shared mailbox — `kasiew@`, `jordanj@`, `olivia@`,
+`oswaldov@`); they were pruned the same day. Craig confirmed the three.
+
+**What it means while in effect:** `MONITORED_MAILBOXES` lists exactly these
+three; `FORWARD_MAILBOX` is empty; the `Service_and_sales_queue@` group must
+contain exactly these three as direct members, because **group membership is
+the scope** — anyone added to that group becomes readable by the app. Part 5's
+negative test is the check that catches drift.
+
+**Revisit when:** the office wants another mailbox watched — that's a group
+membership change plus an edit to `MONITORED_MAILBOXES`, then re-run Part 5.
 
 ---
 
