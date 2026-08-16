@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import ConfidenceBars from "./ConfidenceBars";
 import { QUEUE_META, formatWhen, snippet } from "../format";
@@ -24,7 +25,73 @@ const EMPTY = {
   },
 };
 
-function MessageCard({ message, selected, onSelect }) {
+/* One-click triage without opening the message. Every one of these is a
+   training signal: a move teaches the sender's queue, an assign confirms
+   the sort, Ignore files it as noise. */
+function QuickActions({
+  message,
+  users,
+  me,
+  assignOpen,
+  onToggleAssign,
+  onMove,
+  onAssign,
+  onIgnore,
+}) {
+  const others = users.filter((u) => u.id !== me.id);
+  return (
+    <div
+      className="eq-quick"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {message.queue !== "service" && (
+        <button className="eq-mini" onClick={() => onMove(message.id, "service")}>
+          → Service
+        </button>
+      )}
+      {message.queue !== "sales" && (
+        <button className="eq-mini" onClick={() => onMove(message.id, "sales")}>
+          → Sales
+        </button>
+      )}
+
+      <span className="eq-menu-wrap">
+        <button className="eq-mini" onClick={() => onToggleAssign(message.id)}>
+          {message.assignee
+            ? `@ ${message.assignee.display_name.split(" ")[0]}`
+            : "Assign"}
+        </button>
+        {assignOpen && (
+          <div className="eq-menu eq-menu-mini">
+            <p>Assign to</p>
+            <button onClick={() => onAssign(message.id, me.id)}>
+              <Avatar user={me} small /> Me ({me.display_name.split(" ")[0]})
+            </button>
+            {others.length > 0 && <hr />}
+            {others.map((u) => (
+              <button key={u.id} onClick={() => onAssign(message.id, u.id)}>
+                <Avatar user={u} small /> {u.display_name}
+              </button>
+            ))}
+          </div>
+        )}
+      </span>
+
+      {message.queue !== "ignored" && (
+        <button
+          className="eq-mini quiet"
+          title="Nobody needs to answer this — files it to Ignored and the sorting learns"
+          onClick={() => onIgnore(message.id)}
+        >
+          Ignore
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MessageCard({ message, selected, onSelect, quick }) {
   const meta = QUEUE_META[message.queue];
   const classes = ["eq-card", meta.cls];
   if (message.status === "handled") classes.push("done");
@@ -75,13 +142,37 @@ function MessageCard({ message, selected, onSelect }) {
           <small>{message.confidence}%</small>
         </span>
       </div>
+
+      <QuickActions message={message} {...quick} />
     </div>
   );
 }
 
-export default function MessageList({ messages, queue, scope, selectedId, onSelect }) {
+export default function MessageList({
+  messages,
+  queue,
+  scope,
+  selectedId,
+  onSelect,
+  users,
+  me,
+  onQuickMove,
+  onQuickAssign,
+  onQuickIgnore,
+}) {
   const heading = queue === "all" ? "All requests" : `${QUEUE_META[queue].label} queue`;
   const sub = HEADINGS[scope];
+
+  const [assignFor, setAssignFor] = useState(null);
+
+  useEffect(() => {
+    if (assignFor === null) return undefined;
+    function close(event) {
+      if (!event.target.closest(".eq-menu-wrap")) setAssignFor(null);
+    }
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [assignFor]);
 
   if (messages.length === 0) {
     const empty = EMPTY[scope];
@@ -113,6 +204,24 @@ export default function MessageList({ messages, queue, scope, selectedId, onSele
           message={message}
           selected={selectedId === message.id}
           onSelect={onSelect}
+          quick={{
+            users,
+            me,
+            assignOpen: assignFor === message.id,
+            onToggleAssign: (id) => setAssignFor(assignFor === id ? null : id),
+            onMove: (id, q) => {
+              setAssignFor(null);
+              onQuickMove(id, q);
+            },
+            onAssign: (id, userId) => {
+              setAssignFor(null);
+              onQuickAssign(id, userId);
+            },
+            onIgnore: (id) => {
+              setAssignFor(null);
+              onQuickIgnore(id);
+            },
+          }}
         />
       ))}
     </section>

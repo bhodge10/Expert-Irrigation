@@ -115,6 +115,20 @@ export default function App() {
     }
   }
 
+  /* Quick actions from the list cards — same API calls as the detail pane,
+     but the target may not be the selected message. */
+  async function quickAct(run, successText) {
+    try {
+      const updated = await run();
+      setDetail((d) => (d && updated && d.id === updated.id ? updated : d));
+      await refreshList();
+      if (successText) say(successText);
+    } catch (err) {
+      if (err.status === 401) setMe(null);
+      else say(err.message, true);
+    }
+  }
+
   async function signOut() {
     try {
       await api.logout();
@@ -181,6 +195,30 @@ export default function App() {
               scope={scope}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              users={users}
+              me={me}
+              onQuickMove={(id, nextQueue) =>
+                quickAct(
+                  () => api.moveQueue(id, nextQueue),
+                  `Moved to ${QUEUE_META[nextQueue].label} — noted for next time`,
+                )
+              }
+              onQuickAssign={(id, userId) =>
+                quickAct(
+                  () => api.assign(id, userId),
+                  userId === me.id
+                    ? "Assigned to you"
+                    : `Assigned to ${
+                        users.find((u) => u.id === userId)?.display_name ?? "teammate"
+                      }`,
+                )
+              }
+              onQuickIgnore={(id) =>
+                quickAct(
+                  () => api.reject(id),
+                  "Ignored — the sorting learns from this",
+                )
+              }
             />
 
             {detail && (

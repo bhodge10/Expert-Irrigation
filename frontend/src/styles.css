@@ -726,6 +726,37 @@ body {
 .eq-menu-wrap {
   position: relative;
 }
+
+/* quick actions on the list cards */
+.eq-quick {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+.eq-mini {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink2);
+  cursor: pointer;
+}
+.eq-mini:hover {
+  background: var(--wash);
+  border-color: var(--slate);
+}
+.eq-mini.quiet {
+  color: var(--muted);
+}
+.eq-menu-mini {
+  min-width: 190px;
+}
 .eq-menu {
   position: absolute;
   top: calc(100% + 6px);
