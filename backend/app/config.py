@@ -113,10 +113,15 @@ class Settings(BaseSettings):
     @property
     def database_url_resolved(self) -> str:
         if self.database_url:
-            # Render hands out postgres:// URLs; SQLAlchemy 2 wants postgresql://
-            if self.database_url.startswith("postgres://"):
-                return self.database_url.replace("postgres://", "postgresql://", 1)
-            return self.database_url
+            # Render hands out postgres:// or postgresql:// URLs. Bare
+            # postgresql:// makes SQLAlchemy reach for psycopg2; we ship
+            # psycopg 3, which needs the +psycopg driver marker.
+            url = self.database_url
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql://", 1)
+            if url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return url
         return f"sqlite:///{BACKEND_DIR / 'expert_inbox.db'}"
 
 
