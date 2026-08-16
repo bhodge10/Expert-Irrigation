@@ -51,6 +51,7 @@ export const api = {
     request(`/messages/${id}/queue`, { method: "POST", body: { queue } }),
   setStatus: (id, status) =>
     request(`/messages/${id}/status`, { method: "POST", body: { status } }),
+  reject: (id) => request(`/messages/${id}/reject`, { method: "POST" }),
   addNote: (id, bodyText) =>
     request(`/messages/${id}/notes`, {
       method: "POST",

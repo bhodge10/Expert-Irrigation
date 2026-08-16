@@ -51,6 +51,14 @@ FORM_INSTALL = "install"
 FORM_SERVICE = "service_request"
 FORM_TYPES = (FORM_CONTACT, FORM_INSTALL, FORM_SERVICE)
 
+# what a classification event records. The model speaks once; every human
+# action after that is a verdict on whether it was right.
+KIND_MODEL = "model"  # the automatic sort itself
+KIND_CORRECTION = "correction"  # a human moved it to another queue
+KIND_CONFIRMATION = "confirmation"  # a human worked it where it landed
+KIND_REJECTION = "rejection"  # a human said it shouldn't be here at all
+EVENT_KINDS = (KIND_MODEL, KIND_CORRECTION, KIND_CONFIRMATION, KIND_REJECTION)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -247,6 +255,11 @@ class ClassificationEvent(Base):
         ForeignKey("users.id", ondelete="SET NULL")
     )
     confidence: Mapped[int | None] = mapped_column(Integer)
+    # One of EVENT_KINDS. Confirmations and rejections carry the same queue in
+    # from_queue and to_queue — the signal is the verdict, not a move.
+    kind: Mapped[str] = mapped_column(
+        String(16), default=KIND_MODEL, server_default=KIND_MODEL, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )

@@ -7,7 +7,7 @@ tested on their own; what's left here is the writing.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from .graph import GraphClient, GraphError
 from .mail.normalize import NormalizedMessage, normalize
 from .mail.rules import Action, decide
 from .models import (
+    KIND_MODEL,
     OPEN,
     OTHER,
     SOURCE_FORWARD,
@@ -157,6 +158,7 @@ def create_message(db: Session, msg: NormalizedMessage) -> Message:
             to_queue=OTHER,
             changed_by=None,
             confidence=0,
+            kind=KIND_MODEL,
         )
     )
     return record
@@ -247,6 +249,20 @@ def _tag_in_outlook(graph: GraphClient | None, mailbox: str, graph_id: str) -> N
         log.warning("Could not tag %s in %s: %s", graph_id, mailbox, exc)
 
 
+def _received_at(raw: dict) -> datetime | None:
+    """Parse Graph's receivedDateTime; None when absent or malformed."""
+    value = raw.get("receivedDateTime")
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def poll_mailbox(db: Session, graph: GraphClient, mailbox: str) -> IngestResult:
     """Read one mailbox and file whatever is new."""
     state = (
@@ -257,13 +273,39 @@ def poll_mailbox(db: Session, graph: GraphClient, mailbox: str) -> IngestResult:
     if state is None:
         state = MailboxState(mailbox=mailbox)
         db.add(state)
-        db.flush()
 
     state.last_polled_at = utcnow()
+    # Commit before any Graph fetch — holding a write transaction across
+    # network calls locks every other process out of SQLite.
+    db.commit()
     result = IngestResult()
 
+    cutoff = (
+        utcnow() - timedelta(days=settings.ingest_max_age_days)
+        if settings.ingest_max_age_days > 0
+        else None
+    )
+
     try:
-        messages, delta_link = graph.delta_messages(mailbox, state.delta_link)
+        if state.delta_link is None and cutoff is not None:
+            # First sync. A plain delta walk enumerates the mailbox's entire
+            # history into memory — half an hour and a gigabyte for a real
+            # inbox. Instead: take a delta link for "now", then backfill just
+            # the ingest window. Mail arriving in between shows up in both;
+            # the graph_message_id dedupe makes that harmless.
+            delta_link = graph.delta_bootstrap(mailbox)
+            messages = graph.messages_since(
+                mailbox, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+            )
+            log.info(
+                "%s: first sync — bootstrapped delta, backfilling %d message(s) "
+                "from the last %d day(s)",
+                mailbox,
+                len(messages),
+                settings.ingest_max_age_days,
+            )
+        else:
+            messages, delta_link = graph.delta_messages(mailbox, state.delta_link)
     except GraphError as exc:
         state.last_error = str(exc)[:1000]
         state.consecutive_failures += 1
@@ -271,7 +313,13 @@ def poll_mailbox(db: Session, graph: GraphClient, mailbox: str) -> IngestResult:
         log.error("Polling %s failed: %s", mailbox, exc)
         return IngestResult(failed=1)
 
+    aged_out = 0
     for raw in messages:
+        if cutoff is not None:
+            received = _received_at(raw)
+            if received is not None and received < cutoff:
+                aged_out += 1
+                continue
         try:
             action = ingest_one(db, raw, mailbox, graph=graph)
             if action == "create":
@@ -285,6 +333,15 @@ def poll_mailbox(db: Session, graph: GraphClient, mailbox: str) -> IngestResult:
             db.rollback()
             result.failed += 1
             log.exception("Could not ingest %s from %s: %s", raw.get("id"), mailbox, exc)
+
+    if aged_out:
+        result.skipped += aged_out
+        log.info(
+            "%s: skipped %d message(s) older than %d days",
+            mailbox,
+            aged_out,
+            settings.ingest_max_age_days,
+        )
 
     # Only advance the delta link once everything in this batch is committed.
     # Losing the batch is recoverable; skipping past it is not.

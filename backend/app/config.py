@@ -62,6 +62,11 @@ class Settings(BaseSettings):
 
     poll_seconds: int = 60
 
+    # Ignore mail older than this many days at ingest. Matters on the FIRST
+    # sync of a mailbox, which walks its entire inbox history — without a
+    # cutoff the queue floods with years-old mail. 0 turns the cutoff off.
+    ingest_max_age_days: int = 7
+
     def _csv(self, raw: str) -> list[str]:
         return [item.strip().lower() for item in raw.split(",") if item.strip()]
 

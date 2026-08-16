@@ -201,6 +201,52 @@ class GraphClient:
 
         return messages, next_delta
 
+    def delta_bootstrap(self, mailbox: str) -> str | None:
+        """A delta link for "now", without walking the mailbox.
+
+        $deltaToken=latest returns no messages, just the link. It's how the
+        first sync of a big mailbox avoids paging years of history into
+        memory — the backfill of recent mail happens separately, bounded,
+        through messages_since.
+        """
+        response = self._request(
+            "GET",
+            f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages/delta",
+            params={"$deltaToken": "latest"},
+        )
+        if response.status_code >= 400:
+            raise GraphError(
+                f"Bootstrapping {mailbox} failed ({response.status_code}): "
+                f"{response.text[:300]}",
+                status=response.status_code,
+            )
+        return response.json().get("@odata.deltaLink")
+
+    def messages_since(self, mailbox: str, since_iso: str) -> list[dict[str, Any]]:
+        """Inbox messages received on or after the given UTC ISO timestamp."""
+        url = f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages"
+        params: dict[str, Any] | None = {
+            "$select": MESSAGE_FIELDS,
+            "$filter": f"receivedDateTime ge {since_iso}",
+            "$orderby": "receivedDateTime desc",
+            "$top": 50,
+        }
+
+        messages: list[dict[str, Any]] = []
+        while url:
+            response = self._request("GET", url, params=params)
+            params = None  # nextLink carries everything
+            if response.status_code >= 400:
+                raise GraphError(
+                    f"Reading {mailbox} failed ({response.status_code}): "
+                    f"{response.text[:300]}",
+                    status=response.status_code,
+                )
+            payload = response.json()
+            messages.extend(payload.get("value", []))
+            url = payload.get("@odata.nextLink")
+        return messages
+
     def message_headers(self, mailbox: str, message_id: str) -> dict[str, str]:
         """Internet headers, used to spot bulk and list mail."""
         url = f"{GRAPH}/users/{mailbox}/messages/{message_id}"

@@ -4,7 +4,7 @@ Kept in one place so the list and detail views can never drift apart.
 """
 
 from .db import as_utc
-from .models import Message, Note, Reply, User
+from .models import KIND_CORRECTION, KIND_REJECTION, Message, Note, Reply, User
 from .schemas import MessageDetailOut, MessageOut, NoteOut, ReplyOut, UserOut
 
 
@@ -73,7 +73,8 @@ def message_detail_out(message: Message) -> MessageDetailOut:
     know that so it can say so rather than presenting them as current.
     """
     events = message.classification_events
-    corrections = [e for e in events if e.changed_by is not None]
+    corrections = [e for e in events if e.kind == KIND_CORRECTION]
+    rejections = [e for e in events if e.kind == KIND_REJECTION]
 
     original_queue = events[0].to_queue if events else None
     corrected_by = user_out(corrections[-1].changer) if corrections else None
@@ -86,4 +87,5 @@ def message_detail_out(message: Message) -> MessageDetailOut:
         notes=[note_out(n) for n in message.notes],
         original_queue=original_queue if original_queue != message.queue else None,
         corrected_by=corrected_by,
+        rejected_by=user_out(rejections[-1].changer) if rejections else None,
     )

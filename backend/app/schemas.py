@@ -88,6 +88,10 @@ class MessageDetailOut(MessageOut):
     original_queue: str | None = None
     corrected_by: UserOut | None = None
 
+    # Set when someone pressed "shouldn't be here" — the message was cleared
+    # from the queue and the sorting told so.
+    rejected_by: UserOut | None = None
+
 
 class QueueCounts(BaseModel):
     all: int

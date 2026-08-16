@@ -19,6 +19,9 @@ from ..db import get_db, utcnow
 from ..graph import GraphClient, GraphError
 from ..models import (
     HANDLED,
+    KIND_CONFIRMATION,
+    KIND_CORRECTION,
+    KIND_REJECTION,
     OPEN,
     QUEUES,
     ClassificationEvent,
@@ -51,6 +54,28 @@ def _get_message(db: Session, message_id: int) -> Message:
             detail="That message isn't in the queue anymore.",
         )
     return message
+
+
+def _confirm_sorting(db: Session, message: Message, user: User) -> None:
+    """Record that a human worked this message where the sorting put it.
+
+    Assigning, marking handled, and replying all say the same thing: this was
+    a real request, in the right queue. One confirmation per message is
+    enough, and any earlier human verdict — a correction or a rejection —
+    outranks it, so this stays silent if one exists.
+    """
+    if any(e.changed_by is not None for e in message.classification_events):
+        return
+    db.add(
+        ClassificationEvent(
+            message_id=message.id,
+            from_queue=message.queue,
+            to_queue=message.queue,
+            changed_by=user.id,
+            confidence=message.confidence,
+            kind=KIND_CONFIRMATION,
+        )
+    )
 
 
 @router.get("", response_model=MessageListOut)
@@ -115,7 +140,7 @@ def assign_message(
     message_id: int,
     payload: AssignIn,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ) -> MessageDetailOut:
     message = _get_message(db, message_id)
 
@@ -128,6 +153,10 @@ def assign_message(
             )
 
     message.assignee_id = payload.assignee_id
+    # Giving it to someone says the request is real and sorted right. Clearing
+    # an assignment says nothing.
+    if payload.assignee_id is not None:
+        _confirm_sorting(db, message, user)
     db.commit()
     db.refresh(message)
     return message_detail_out(message)
@@ -154,6 +183,7 @@ def move_queue(
             to_queue=payload.queue,
             changed_by=user.id,
             confidence=message.confidence,
+            kind=KIND_CORRECTION,
         )
     )
 
@@ -179,6 +209,8 @@ def set_status(
         message.status = HANDLED
         message.handled_at = utcnow()
         message.handled_by = user.id
+        # Handling it where it landed is the quiet "the sorting was right".
+        _confirm_sorting(db, message, user)
     else:
         message.status = OPEN
         message.handled_at = None
@@ -283,6 +315,45 @@ def send_reply(
     # Whoever answers it owns it, unless someone already does.
     if message.assignee_id is None:
         message.assignee_id = user.id
+
+    # Nobody replies to a misfiled message — answering it confirms the sort.
+    _confirm_sorting(db, message, user)
+
+    db.commit()
+    db.refresh(message)
+    return message_detail_out(message)
+
+
+@router.post("/{message_id}/reject", response_model=MessageDetailOut)
+def reject_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> MessageDetailOut:
+    """The "shouldn't be here" button: spam, vendor noise, a misfire.
+
+    Records the strongest negative signal the sorting can get, then clears
+    the message from the open queue. Nothing is deleted — the row and its
+    verdict are exactly what the classifier learns from later, and Reopen
+    undoes the clearing if the button was pressed by mistake.
+    """
+    message = _get_message(db, message_id)
+
+    if not any(e.kind == KIND_REJECTION for e in message.classification_events):
+        db.add(
+            ClassificationEvent(
+                message_id=message.id,
+                from_queue=message.queue,
+                to_queue=message.queue,
+                changed_by=user.id,
+                confidence=message.confidence,
+                kind=KIND_REJECTION,
+            )
+        )
+
+    message.status = HANDLED
+    message.handled_at = utcnow()
+    message.handled_by = user.id
 
     db.commit()
     db.refresh(message)

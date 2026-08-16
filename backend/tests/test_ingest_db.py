@@ -33,6 +33,12 @@ class FakeGraph:
     def delta_messages(self, mailbox, delta_link=None):
         return list(self._per_mailbox.get(mailbox, [])), f"delta-for-{mailbox}"
 
+    def delta_bootstrap(self, mailbox):
+        return f"delta-for-{mailbox}"
+
+    def messages_since(self, mailbox, since_iso):
+        return list(self._per_mailbox.get(mailbox, []))
+
     def message_headers(self, mailbox, message_id):
         return self.headers.get(message_id, {})
 
@@ -73,6 +79,23 @@ def graph_settings(monkeypatch):
     monkeypatch.setattr(settings, "forward_mailbox", FORWARD_BOX, raising=False)
     monkeypatch.setattr(settings, "outlook_category", "Expert Queue", raising=False)
     monkeypatch.setattr(settings, "internal_domain", "expertsvc.com", raising=False)
+    # The fixtures carry a fixed receivedDateTime; the age cutoff is off here
+    # so tests don't start failing as that date recedes into the past.
+    monkeypatch.setattr(settings, "ingest_max_age_days", 0, raising=False)
+
+
+def test_age_cutoff_skips_old_mail_but_still_advances_the_delta_link(db, monkeypatch):
+    monkeypatch.setattr(settings, "ingest_max_age_days", 7, raising=False)
+    old = graph_message(fx.DIRECT_URGENT, msg_id="OLD")
+    old["receivedDateTime"] = "2020-01-05T09:00:00Z"
+    graph = FakeGraph({"craigz@expertsvc.com": [old]})
+
+    result = poll_mailbox(db, graph, "craigz@expertsvc.com")
+
+    assert result.created == 0
+    assert result.skipped == 1
+    state = db.execute(select(MailboxState)).scalars().one()
+    assert state.delta_link == "delta-for-craigz@expertsvc.com"
 
 
 def test_website_form_becomes_a_queue_item_with_the_real_customer(db):

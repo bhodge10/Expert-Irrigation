@@ -179,6 +179,60 @@ gone wrong — remove them and re-test.
 
 ---
 
+## Every portal action is a training signal, and one button says "never should have been here"
+
+**Decided:** 2026-08-16 · **Phase:** 2/3 boundary
+
+Every classification event now carries a `kind`:
+
+- **model** — the automatic sort itself (today the rules engine, Phase 3 the classifier)
+- **confirmation** — a human assigned, handled, or replied to the message where
+  it landed. First positive action only; repeats are noise. Silent if a human
+  verdict already exists — working a message *after* correcting it must not
+  also count as "the sort was right".
+- **correction** — a human moved it to another queue (what the table always recorded)
+- **rejection** — the "Not valid" button: spam, vendor noise, a misfire
+
+**The button's semantics:** rejection records the verdict and marks the
+message handled — it leaves the queue but is **never deleted**. The row and
+its verdict are the training data, and Reopen undoes a slip. This is also the
+portal's stand-in for "delete", which deliberately doesn't exist.
+
+**Why capture confirmations explicitly** when the old entry below said they
+were derivable: deriving "handled and never moved" requires deciding *when*
+to derive it — a message handled yesterday might be moved tomorrow. An
+explicit event stream with an outranking rule (correction/rejection beats
+confirmation) has no such ambiguity, and Phase 3 reads it with one query:
+`SELECT ... FROM classification_events WHERE kind = ...`.
+
+**What Phase 3 does with them:** corrections and rejections become few-shot
+counter-examples; confirmations become the balancing positive examples the
+entry below warned would otherwise be missing.
+
+---
+
+## First sync starts at "now" and backfills a window, never the whole mailbox
+
+**Decided:** 2026-08-16 · **Phase:** 2
+
+The first poll of a mailbox does NOT walk its delta from the beginning. It
+asks Graph for a delta token at "latest" (no enumeration), then backfills
+messages from the last `INGEST_MAX_AGE_DAYS` days (default 7) with a
+date-filtered query.
+
+**Why:** the naive first delta walks the mailbox's entire history into
+memory. Against Craig's real inbox that was 30+ minutes, a gigabyte of RAM,
+and still climbing when we killed it — and Render's free tier has 512MB. The
+bootstrap takes seconds. Messages arriving between the two calls appear in
+both; the `graph_message_id` dedupe makes that harmless.
+
+**The trade:** mail older than the window never enters the queue. That's the
+product decision made the same day: the queue starts with current mail, not
+an archaeology dig. Setting `INGEST_MAX_AGE_DAYS=0` (cutoff off) falls back
+to the full-history walk — accepted for tiny mailboxes only.
+
+---
+
 ## The sorting learns from corrections, but nothing tunes itself silently
 
 **Decided:** 2026-08-01 · **Phase:** 3

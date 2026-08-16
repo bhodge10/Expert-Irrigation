@@ -127,7 +127,7 @@ export default function App() {
           <div className="eq-top-right">
             <span className="eq-sync">
               <span className="eq-pulse" />
-              <span>Seeded data · not connected</span>
+              <span>Live · reading mail</span>
             </span>
             <span className="eq-me">
               <Avatar user={me} />
@@ -203,14 +203,20 @@ export default function App() {
                       : `Reply saved for ${detail.from_name.split(" ")[0]}`,
                   )
                 }
+                onReject={() =>
+                  act(
+                    () => api.reject(detail.id),
+                    "Marked not valid — the sorting learns from this",
+                  )
+                }
               />
             )}
           </main>
         </div>
 
         <div className="eq-foot">
-          <span>Phase 1 — seeded mail, nothing sends.</span>
-          <span>Microsoft 365 ingestion arrives in Phase 2.</span>
+          <span>Reading live mail — read-only, nothing sends yet.</span>
+          <span>Assign, handle, move or reject: each one teaches the sorting.</span>
         </div>
       </div>
 

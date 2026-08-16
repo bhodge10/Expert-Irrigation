@@ -117,6 +117,7 @@ export default function DetailPane({
   onMove,
   onToggleStatus,
   onReply,
+  onReject,
 }) {
   const [menu, setMenu] = useState(null); // "assign" | "move" | null
   const [composing, setComposing] = useState(false);
@@ -179,6 +180,14 @@ export default function DetailPane({
           )}
           {message.source === "forwarded" && (
             <span className="eq-tag t-plain">Forwarded in</span>
+          )}
+          {message.rejected_by && (
+            <span
+              className="eq-tag t-plain"
+              title={`${message.rejected_by.display_name} marked this as not a real request. The sorting learns from it. Reopen if it was a mistake.`}
+            >
+              Marked not valid
+            </span>
           )}
         </div>
       </div>
@@ -311,6 +320,16 @@ export default function DetailPane({
             <button className="eq-btn ghost" onClick={onToggleStatus}>
               {handled ? "Reopen" : "Mark handled"}
             </button>
+
+            {!message.rejected_by && (
+              <button
+                className="eq-btn ghost"
+                title="Spam, vendor noise, or a misfire — records that the sorting was wrong and clears it from the queue. Nothing is deleted."
+                onClick={onReject}
+              >
+                Not valid
+              </button>
+            )}
           </div>
         </div>
       )}
