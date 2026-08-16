@@ -252,11 +252,21 @@ mechanisms landed:
    classification — Craig edits it, saves, and the next email sorts by the
    new rules.
 
-The model is `claude-opus-5` (config `CLASSIFY_MODEL`), called once per new
-message at ingest, before the database insert so the API call never holds the
-SQLite write lock. Any failure — no API key, refusal, timeout — files the
-message unsorted in Other at 0%, exactly like Phase 2. Backfill:
-`python manage.py classify`.
+The model is set by `CLASSIFY_MODEL` (running as `claude-sonnet-5`), called
+once per new message at ingest, before the database insert so the API call
+never holds the SQLite write lock. Any failure — no API key, refusal,
+timeout — files the message unsorted in Other at 0%, exactly like Phase 2.
+Backfill: `python manage.py classify`.
+
+**Reply drafting (built same day):** service and sales mail also gets a
+reply drafted at ingest, in Craig's voice — tone comes from his last ~50
+actual sent replies (read via Graph, quoted history stripped, cached an
+hour), rules from the editable `backend/prompts/draft.md`. The draft
+pre-fills the composer; anything without one (Other-queue mail) gets a
+"Draft with AI" button that generates on demand. Nothing sends itself —
+a draft is text in a column until a human presses Send, and actual sending
+still waits on the stage-two `Mail.Send` grant. Backfill:
+`python manage.py draft`.
 
 You cannot fine-tune Claude — Anthropic doesn't offer it. "Getting more
 accurate" means three things, and we're doing all three:

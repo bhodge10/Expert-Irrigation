@@ -88,4 +88,5 @@ def message_detail_out(message: Message) -> MessageDetailOut:
         original_queue=original_queue if original_queue != message.queue else None,
         corrected_by=corrected_by,
         rejected_by=user_out(rejections[-1].changer) if rejections else None,
+        draft_reply=message.draft_reply,
     )

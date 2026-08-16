@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     # classification, so edits take effect on the next email.
     classify_prompt_path: Path = BACKEND_DIR / "prompts" / "classify.md"
 
+    # Same idea for reply drafting: Craig's voice, the hard rules, the
+    # sign-off. Read on every draft.
+    draft_prompt_path: Path = BACKEND_DIR / "prompts" / "draft.md"
+
     @property
     def classification_configured(self) -> bool:
         return bool(self.anthropic_api_key.strip())

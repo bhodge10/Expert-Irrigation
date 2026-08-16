@@ -12,6 +12,8 @@
                                              read-only
     python manage.py classify                sort the unclassified open messages
                                              through the Claude model
+    python manage.py draft                   draft replies for open service and
+                                             sales messages that lack one
 
 Migrations are Alembic's job, not this script's:  alembic upgrade head
 """
@@ -406,6 +408,65 @@ def cmd_classify(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_draft(args: argparse.Namespace) -> int:
+    """Backfill: draft replies for open service/sales mail without one.
+
+    New service and sales mail drafts at ingest; this catches what arrived
+    before drafting existed. Commits per message, so it's safe to interrupt.
+    """
+    if not settings.classification_configured:
+        print("ANTHROPIC_API_KEY is empty — set it in .env first.")
+        return 1
+
+    from app.draft import draft_reply_text
+    from app.models import OPEN
+
+    db = SessionLocal()
+    graph = GraphClient() if settings.graph_configured else None
+    try:
+        candidates = (
+            db.query(Message)
+            .filter(
+                Message.status == OPEN,
+                Message.queue.in_(("service", "sales")),
+                Message.draft_reply.is_(None),
+            )
+            .order_by(Message.id)
+            .all()
+        )
+        if not candidates:
+            print("Nothing to draft — every open service/sales message has one.")
+            return 0
+
+        done = failed = 0
+        for message in candidates:
+            if args.limit and done + failed >= args.limit:
+                break
+            text = draft_reply_text(
+                graph,
+                from_name=message.from_name,
+                from_email=message.from_email,
+                subject=message.subject,
+                body=message.body_clean or message.body_text,
+                mailbox=message.mailbox,
+            )
+            if text is None:
+                failed += 1
+                print(f"#{message.id:<4} FAILED   {message.subject[:52]}")
+                continue
+            message.draft_reply = text
+            db.commit()
+            done += 1
+            print(f"#{message.id:<4} drafted  {message.subject[:52]}")
+
+        print(f"\n{done} drafted, {failed} failed.")
+        return 1 if failed and not done else 0
+    finally:
+        if graph is not None:
+            graph.close()
+        db.close()
+
+
 def cmd_users(_: argparse.Namespace) -> int:
     db = SessionLocal()
     try:
@@ -478,6 +539,14 @@ def main() -> int:
         "--limit", type=int, default=0, help="stop after this many (0 = all)"
     )
     p_cl.set_defaults(func=cmd_classify)
+
+    p_dr = sub.add_parser(
+        "draft", help="draft replies for open service/sales messages without one"
+    )
+    p_dr.add_argument(
+        "--limit", type=int, default=0, help="stop after this many (0 = all)"
+    )
+    p_dr.set_defaults(func=cmd_draft)
 
     args = parser.parse_args()
     return args.func(args)

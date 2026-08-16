@@ -52,6 +52,7 @@ export const api = {
   setStatus: (id, status) =>
     request(`/messages/${id}/status`, { method: "POST", body: { status } }),
   reject: (id) => request(`/messages/${id}/reject`, { method: "POST" }),
+  draftReply: (id) => request(`/messages/${id}/draft`, { method: "POST" }),
   addNote: (id, bodyText) =>
     request(`/messages/${id}/notes`, {
       method: "POST",

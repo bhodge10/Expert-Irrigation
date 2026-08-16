@@ -92,6 +92,9 @@ class MessageDetailOut(MessageOut):
     # from the queue and the sorting told so.
     rejected_by: UserOut | None = None
 
+    # An AI-drafted reply waiting in the composer. Never sent by machinery.
+    draft_reply: str | None = None
+
 
 class QueueCounts(BaseModel):
     all: int

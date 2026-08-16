@@ -229,6 +229,12 @@ export default function App() {
                     "Marked not valid — the sorting learns from this",
                   )
                 }
+                onDraft={() =>
+                  act(
+                    () => api.draftReply(detail.id),
+                    "Draft ready — read it before sending",
+                  )
+                }
               />
             )}
           </main>

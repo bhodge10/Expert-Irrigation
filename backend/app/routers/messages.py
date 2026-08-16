@@ -324,6 +324,61 @@ def send_reply(
     return message_detail_out(message)
 
 
+@router.post("/{message_id}/draft", response_model=MessageDetailOut)
+def draft_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(current_user),
+) -> MessageDetailOut:
+    """Generate (or regenerate) an AI draft for the composer, on demand.
+
+    Service and sales mail gets drafted at ingest; this covers everything
+    else — an Other-queue message that turns out to deserve an answer, or a
+    draft someone wants a second take on. Nothing sends: the draft sits in
+    the composer until a human presses Send.
+    """
+    if not settings.classification_configured:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Drafting is off — ANTHROPIC_API_KEY isn't configured.",
+        )
+
+    message = _get_message(db, message_id)
+
+    from ..draft import draft_reply_text
+
+    if settings.graph_configured:
+        with GraphClient() as graph:
+            text = draft_reply_text(
+                graph,
+                from_name=message.from_name,
+                from_email=message.from_email,
+                subject=message.subject,
+                body=message.body_clean or message.body_text,
+                mailbox=message.mailbox,
+            )
+    else:
+        text = draft_reply_text(
+            None,
+            from_name=message.from_name,
+            from_email=message.from_email,
+            subject=message.subject,
+            body=message.body_clean or message.body_text,
+            mailbox=message.mailbox,
+        )
+
+    if text is None:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Couldn't draft a reply just now — try again in a moment.",
+        )
+
+    message.draft_reply = text
+    db.commit()
+    db.refresh(message)
+    return message_detail_out(message)
+
+
 @router.post("/{message_id}/reject", response_model=MessageDetailOut)
 def reject_message(
     message_id: int,

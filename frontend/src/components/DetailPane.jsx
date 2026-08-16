@@ -54,21 +54,40 @@ function MoveMenu({ message, onMove }) {
   );
 }
 
-function Composer({ message, onSend, onCancel }) {
-  const [text, setText] = useState("");
+function Composer({ message, onSend, onCancel, onDraft }) {
+  const [text, setText] = useState(message.draft_reply || "");
   const [markHandled, setMarkHandled] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef(null);
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
+  /* A draft generated while the composer is open lands in the (still empty)
+     textarea. Never overwrites something the user typed. */
+  useEffect(() => {
+    if (message.draft_reply) {
+      setText((current) => (current.trim() === "" ? message.draft_reply : current));
+    }
+  }, [message.draft_reply]);
+
   async function send() {
     if (!text.trim() || busy) return;
     setBusy(true);
     const ok = await onSend(text, markHandled);
     if (!ok) setBusy(false);
+  }
+
+  async function generate() {
+    if (drafting) return;
+    setDrafting(true);
+    try {
+      await onDraft();
+    } finally {
+      setDrafting(false);
+    }
   }
 
   return (
@@ -85,8 +104,11 @@ function Composer({ message, onSend, onCancel }) {
         placeholder="Write the reply…"
       />
       <p className="eq-draftnote">
-        The customer sees {message.mailbox}, not you. Who sent it is recorded on the
-        message. Nothing leaves the building yet — replies are saved here only.
+        {message.draft_reply && text === message.draft_reply
+          ? "Drafted by AI in Craig's voice — read it and edit before sending. "
+          : ""}
+        The customer sees {message.mailbox}, not you. Who sent it is recorded on
+        the message.
       </p>
       <div className="eq-arow">
         <button className="eq-btn pri" onClick={send} disabled={busy || !text.trim()}>
@@ -95,6 +117,11 @@ function Composer({ message, onSend, onCancel }) {
         <button className="eq-btn ghost" onClick={onCancel} disabled={busy}>
           Cancel
         </button>
+        {text.trim() === "" && (
+          <button className="eq-btn ghost" onClick={generate} disabled={drafting}>
+            {drafting ? "Drafting…" : "Draft with AI"}
+          </button>
+        )}
         <label className="eq-handled-toggle">
           <input
             type="checkbox"
@@ -118,6 +145,7 @@ export default function DetailPane({
   onToggleStatus,
   onReply,
   onReject,
+  onDraft,
 }) {
   const [menu, setMenu] = useState(null); // "assign" | "move" | null
   const [composing, setComposing] = useState(false);
@@ -201,6 +229,7 @@ export default function DetailPane({
             return ok;
           }}
           onCancel={() => setComposing(false)}
+          onDraft={onDraft}
         />
       ) : (
         <div className="eq-actions">

@@ -131,6 +131,10 @@ class Message(Base):
     is_urgent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     classification_reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
 
+    # A reply drafted in Craig's voice, waiting in the composer. Text in a
+    # column until a human reads it and presses Send — nothing sends itself.
+    draft_reply: Mapped[str | None] = mapped_column(Text)
+
     assignee_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )

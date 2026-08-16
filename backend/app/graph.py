@@ -247,6 +247,25 @@ class GraphClient:
             url = payload.get("@odata.nextLink")
         return messages
 
+    def sent_messages(self, mailbox: str, top: int = 50) -> list[dict[str, Any]]:
+        """Most recent sent mail — tone examples for drafting, never ingested."""
+        response = self._request(
+            "GET",
+            f"{GRAPH}/users/{mailbox}/mailFolders/sentitems/messages",
+            params={
+                "$top": min(top, 100),
+                "$select": "subject,body,bodyPreview,sentDateTime",
+                "$orderby": "sentDateTime desc",
+            },
+        )
+        if response.status_code >= 400:
+            raise GraphError(
+                f"Reading sent mail for {mailbox} failed ({response.status_code}): "
+                f"{response.text[:300]}",
+                status=response.status_code,
+            )
+        return response.json().get("value", [])
+
     def message_headers(self, mailbox: str, message_id: str) -> dict[str, str]:
         """Internet headers, used to spot bulk and list mail."""
         url = f"{GRAPH}/users/{mailbox}/messages/{message_id}"

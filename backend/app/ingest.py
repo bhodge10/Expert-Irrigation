@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from .classify import UNSORTED, Classification, classify_new
 from .config import settings
 from .db import utcnow
+from .draft import draft_reply_text
 from .graph import GraphClient, GraphError
 from .mail.normalize import NormalizedMessage, normalize
 from .mail.rules import Action, decide
@@ -113,6 +114,7 @@ def create_message(
     db: Session,
     msg: NormalizedMessage,
     classification: Classification | None = None,
+    draft: str | None = None,
 ) -> Message:
     """Write a new queue item, sorted by whatever the classifier decided.
 
@@ -147,6 +149,7 @@ def create_message(
         confidence=c.confidence,
         is_urgent=c.is_urgent,
         classification_reasons=reasons,
+        draft_reply=draft,
         status=HANDLED if c.auto_handle else OPEN,
         handled_at=utcnow() if c.auto_handle else None,
         source=msg.source,
@@ -253,7 +256,21 @@ def ingest_one(
         body=msg.body_clean or msg.body_text,
     )
 
-    record = create_message(db, msg, classification)
+    # Draft a reply for the messages someone will actually answer — service
+    # and sales. Other is overwhelmingly noise; anything there can be drafted
+    # on demand from the composer. Same pre-insert rule as classification.
+    draft = None
+    if classification.queue in ("service", "sales") and not classification.auto_handle:
+        draft = draft_reply_text(
+            graph,
+            from_name=msg.from_name or msg.from_email,
+            from_email=msg.from_email,
+            subject=msg.subject or "(no subject)",
+            body=msg.body_clean or msg.body_text,
+            mailbox=mailbox,
+        )
+
+    record = create_message(db, msg, classification, draft)
     _tag_in_outlook(graph, mailbox, msg.graph_message_id)
     log.info(
         "queued #%s from %s (%s) -> %s at %d%% [%s]",
