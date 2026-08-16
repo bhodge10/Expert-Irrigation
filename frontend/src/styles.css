@@ -511,7 +511,13 @@ body {
   border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  max-height: 820px;
+  /* Pin to the viewport and never exceed it: the page can scroll under the
+     pane, but the header and action bar stay on screen and the email
+     scrolls in its own region. */
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  max-height: min(820px, calc(100vh - 24px));
 }
 .eq-dhead {
   padding: 16px 18px 12px;
@@ -1013,5 +1019,6 @@ input:focus-visible {
   .eq-detail {
     border-left: 0;
     max-height: none;
+    position: static;
   }
 }
