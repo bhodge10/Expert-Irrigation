@@ -30,14 +30,8 @@ class FakeGraph:
         self.headers: dict[str, dict[str, str]] = {}
         self.tag_should_fail = False
 
-    def delta_messages(self, mailbox, delta_link=None):
+    def delta_messages(self, mailbox, delta_link=None, since_iso=None):
         return list(self._per_mailbox.get(mailbox, [])), f"delta-for-{mailbox}"
-
-    def delta_bootstrap(self, mailbox):
-        return f"delta-for-{mailbox}"
-
-    def messages_since(self, mailbox, since_iso):
-        return list(self._per_mailbox.get(mailbox, []))
 
     def message_headers(self, mailbox, message_id):
         return self.headers.get(message_id, {})

@@ -158,12 +158,22 @@ class GraphClient:
         return items[0] if items else None
 
     def delta_messages(
-        self, mailbox: str, delta_link: str | None = None
+        self,
+        mailbox: str,
+        delta_link: str | None = None,
+        since_iso: str | None = None,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """New and changed inbox messages since the last call.
 
         Returns the messages plus the delta link to store for next time. That
         stored link is what stops a restart re-ingesting the whole mailbox.
+
+        since_iso bounds the INITIAL sync: Graph accepts a receivedDateTime
+        filter on the first delta request, so a fresh mailbox enumerates only
+        the recent window instead of its entire history — and still hands
+        back a delta link that tracks new mail from there on. (The
+        $deltatoken=latest shortcut is directory-objects only; Outlook mail
+        doesn't support it.) Ignored once a delta link exists.
         """
         if delta_link:
             url = delta_link
@@ -171,6 +181,8 @@ class GraphClient:
         else:
             url = f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages/delta"
             params = {"$select": MESSAGE_FIELDS}
+            if since_iso:
+                params["$filter"] = f"receivedDateTime ge {since_iso}"
 
         messages: list[dict[str, Any]] = []
         next_delta: str | None = None
@@ -184,9 +196,10 @@ class GraphClient:
 
             if response.status_code == 410:
                 # Delta link expired. Start the mailbox again from scratch —
-                # dedupe on graph_message_id stops that duplicating anything.
+                # dedupe on graph_message_id stops that duplicating anything,
+                # and the since filter keeps the re-walk to the recent window.
                 log.warning("Delta link for %s expired; resyncing.", mailbox)
-                return self.delta_messages(mailbox, None)
+                return self.delta_messages(mailbox, None, since_iso)
 
             if response.status_code >= 400:
                 raise GraphError(
@@ -200,60 +213,6 @@ class GraphClient:
             next_delta = payload.get("@odata.deltaLink") or next_delta
 
         return messages, next_delta
-
-    def delta_bootstrap(self, mailbox: str) -> str | None:
-        """A delta link for "now", without walking the mailbox.
-
-        $deltaToken=latest returns no messages, just the link. It's how the
-        first sync of a big mailbox avoids paging years of history into
-        memory — the backfill of recent mail happens separately, bounded,
-        through messages_since.
-        """
-        response = self._request(
-            "GET",
-            f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages/delta",
-            # Lowercase t. Graph's OData parser ignores "$deltaToken" and
-            # silently runs a full enumeration instead of handing back a
-            # sync token — which cost us a morning of re-syncing every cycle.
-            params={"$deltatoken": "latest"},
-        )
-        if response.status_code >= 400:
-            raise GraphError(
-                f"Bootstrapping {mailbox} failed ({response.status_code}): "
-                f"{response.text[:300]}",
-                status=response.status_code,
-            )
-        link = response.json().get("@odata.deltaLink")
-        if not link:
-            # Never let this fail silently again: no link means every cycle
-            # re-walks the backfill window.
-            log.warning("Delta bootstrap for %s returned no deltaLink", mailbox)
-        return link
-
-    def messages_since(self, mailbox: str, since_iso: str) -> list[dict[str, Any]]:
-        """Inbox messages received on or after the given UTC ISO timestamp."""
-        url = f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages"
-        params: dict[str, Any] | None = {
-            "$select": MESSAGE_FIELDS,
-            "$filter": f"receivedDateTime ge {since_iso}",
-            "$orderby": "receivedDateTime desc",
-            "$top": 50,
-        }
-
-        messages: list[dict[str, Any]] = []
-        while url:
-            response = self._request("GET", url, params=params)
-            params = None  # nextLink carries everything
-            if response.status_code >= 400:
-                raise GraphError(
-                    f"Reading {mailbox} failed ({response.status_code}): "
-                    f"{response.text[:300]}",
-                    status=response.status_code,
-                )
-            payload = response.json()
-            messages.extend(payload.get("value", []))
-            url = payload.get("@odata.nextLink")
-        return messages
 
     def sent_messages(self, mailbox: str, top: int = 50) -> list[dict[str, Any]]:
         """Most recent sent mail — tone examples for drafting, never ingested."""

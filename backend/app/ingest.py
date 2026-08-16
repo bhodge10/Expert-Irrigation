@@ -332,25 +332,24 @@ def poll_mailbox(db: Session, graph: GraphClient, mailbox: str) -> IngestResult:
     )
 
     try:
-        if state.delta_link is None and cutoff is not None:
-            # First sync. A plain delta walk enumerates the mailbox's entire
-            # history into memory — half an hour and a gigabyte for a real
-            # inbox. Instead: take a delta link for "now", then backfill just
-            # the ingest window. Mail arriving in between shows up in both;
-            # the graph_message_id dedupe makes that harmless.
-            delta_link = graph.delta_bootstrap(mailbox)
-            messages = graph.messages_since(
-                mailbox, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
-            )
+        # The since filter bounds the FIRST sync of a mailbox to the ingest
+        # window — a plain delta walk enumerates its entire history into
+        # memory, half an hour and a gigabyte for a real inbox. Once a delta
+        # link exists the filter is ignored; it also re-bounds the re-walk
+        # after a delta link expires.
+        first_sync = state.delta_link is None
+        messages, delta_link = graph.delta_messages(
+            mailbox,
+            state.delta_link,
+            since_iso=cutoff.strftime("%Y-%m-%dT%H:%M:%SZ") if cutoff else None,
+        )
+        if first_sync:
             log.info(
-                "%s: first sync — bootstrapped delta, backfilling %d message(s) "
-                "from the last %d day(s)",
+                "%s: first sync — %d message(s) from the last %d day(s)",
                 mailbox,
                 len(messages),
                 settings.ingest_max_age_days,
             )
-        else:
-            messages, delta_link = graph.delta_messages(mailbox, state.delta_link)
     except GraphError as exc:
         state.last_error = str(exc)[:1000]
         state.consecutive_failures += 1
