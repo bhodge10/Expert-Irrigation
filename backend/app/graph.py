@@ -212,7 +212,10 @@ class GraphClient:
         response = self._request(
             "GET",
             f"{GRAPH}/users/{mailbox}/mailFolders/inbox/messages/delta",
-            params={"$deltaToken": "latest"},
+            # Lowercase t. Graph's OData parser ignores "$deltaToken" and
+            # silently runs a full enumeration instead of handing back a
+            # sync token — which cost us a morning of re-syncing every cycle.
+            params={"$deltatoken": "latest"},
         )
         if response.status_code >= 400:
             raise GraphError(
@@ -220,7 +223,12 @@ class GraphClient:
                 f"{response.text[:300]}",
                 status=response.status_code,
             )
-        return response.json().get("@odata.deltaLink")
+        link = response.json().get("@odata.deltaLink")
+        if not link:
+            # Never let this fail silently again: no link means every cycle
+            # re-walks the backfill window.
+            log.warning("Delta bootstrap for %s returned no deltaLink", mailbox)
+        return link
 
     def messages_since(self, mailbox: str, since_iso: str) -> list[dict[str, Any]]:
         """Inbox messages received on or after the given UTC ISO timestamp."""
