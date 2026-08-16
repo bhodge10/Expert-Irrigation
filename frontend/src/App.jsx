@@ -48,21 +48,41 @@ export default function App() {
     api.users().then(setUsers).catch(() => setUsers([]));
   }, [me]);
 
-  const refreshList = useCallback(async () => {
-    if (!me) return;
-    try {
-      const data = await api.messages(queue, scope);
-      setMessages(data.messages);
-      setCounts(data.counts);
-    } catch (err) {
-      if (err.status === 401) setMe(null);
-      else say(err.message, true);
-    }
-  }, [me, queue, scope, say]);
+  const refreshList = useCallback(
+    async (silent = false) => {
+      if (!me) return;
+      try {
+        const data = await api.messages(queue, scope);
+        setMessages(data.messages);
+        setCounts(data.counts);
+      } catch (err) {
+        if (err.status === 401) setMe(null);
+        else if (!silent) say(err.message, true);
+        // A failed background refresh stays quiet — the next one will catch up.
+      }
+    },
+    [me, queue, scope, say],
+  );
 
   useEffect(() => {
     refreshList();
   }, [refreshList]);
+
+  /* The worker polls mail every 60s; keep the queue fresh without anyone
+     touching anything. Skips while the tab is hidden, refreshes the moment
+     it's visible again. */
+  useEffect(() => {
+    if (!me) return undefined;
+    const tick = () => {
+      if (!document.hidden) refreshList(true);
+    };
+    const timer = setInterval(tick, 30000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [me, refreshList]);
 
   /* Selecting a card loads the full message. */
   useEffect(() => {
