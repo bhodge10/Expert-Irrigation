@@ -561,10 +561,15 @@ body {
   text-decoration: none;
 }
 
-.eq-body {
-  padding: 16px 18px;
+/* Everything under the action bar scrolls as one region, so the buttons
+   stay put however long the email is. */
+.eq-dscroll {
   overflow: auto;
   flex: 1;
+  min-height: 0;
+}
+.eq-body {
+  padding: 16px 18px;
   font-size: 13.5px;
   color: var(--ink2);
   white-space: pre-wrap;
@@ -665,7 +670,7 @@ body {
 }
 
 .eq-actions {
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 12px 18px;
   background: var(--wash2);
 }
@@ -717,7 +722,7 @@ body {
 }
 .eq-menu {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 30;
   background: #fff;
@@ -772,9 +777,9 @@ body {
   margin: 5px 0;
 }
 
-/* composer */
+/* composer — sits in the fixed top region, in place of the action row */
 .eq-comp {
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   background: #fff;
   padding: 14px 18px;
 }

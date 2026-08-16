@@ -192,74 +192,6 @@ export default function DetailPane({
         </div>
       </div>
 
-      <div className="eq-body">{message.body_text}</div>
-
-      {message.classification_reasons.length > 0 && (
-        <div className="eq-ai">
-          {/* Once someone has moved a message, these reasons explain a queue
-              it's no longer in. Say that instead of dressing them up as the
-              current call. */}
-          {corrected ? (
-            <h4>
-              Why the sorting first said{" "}
-              {QUEUE_META[message.original_queue]?.label ?? message.original_queue}
-            </h4>
-          ) : (
-            <h4>
-              Why it landed here <ConfidenceBars confidence={message.confidence} />
-              <span className="eq-conf-note">{message.confidence}% confident</span>
-            </h4>
-          )}
-          <ul>
-            {message.classification_reasons.map((reason, i) => (
-              <li key={i}>{reason}</li>
-            ))}
-          </ul>
-          {corrected && (
-            <p className="eq-correction">
-              {message.corrected_by.display_name} moved it to {meta.label}. The
-              correction is recorded.
-            </p>
-          )}
-        </div>
-      )}
-
-      {message.notes.length > 0 && (
-        <div className="eq-thread eq-notes">
-          <h4>Internal notes — the customer never sees these</h4>
-          {message.notes.map((note) => (
-            <div className="eq-sent eq-note" key={note.id}>
-              <div className="eq-sent-meta">
-                {formatSentAt(note.created_at)} · {note.author_name}
-                {note.from_email ? " · from the email thread" : ""}
-              </div>
-              <pre>{note.body_text}</pre>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {message.replies.length > 0 && (
-        <div className="eq-thread">
-          <h4>Replies sent</h4>
-          {message.replies.map((reply) => (
-            <div className="eq-sent" key={reply.id}>
-              <div className="eq-sent-meta">
-                {formatSentAt(reply.sent_at)} · from {message.mailbox}
-                {reply.sent_by ? ` · sent by ${reply.sent_by.display_name}` : ""}
-                {!reply.delivered && (
-                  <strong className="eq-undelivered">
-                    {" "}
-                    · saved here only, not emailed
-                  </strong>
-                )}
-              </div>
-              <pre>{reply.body_text}</pre>
-            </div>
-          ))}
-        </div>
-      )}
-
       {composing ? (
         <Composer
           message={message}
@@ -333,6 +265,77 @@ export default function DetailPane({
           </div>
         </div>
       )}
+
+      <div className="eq-dscroll">
+      <div className="eq-body">{message.body_text}</div>
+
+      {message.classification_reasons.length > 0 && (
+        <div className="eq-ai">
+          {/* Once someone has moved a message, these reasons explain a queue
+              it's no longer in. Say that instead of dressing them up as the
+              current call. */}
+          {corrected ? (
+            <h4>
+              Why the sorting first said{" "}
+              {QUEUE_META[message.original_queue]?.label ?? message.original_queue}
+            </h4>
+          ) : (
+            <h4>
+              Why it landed here <ConfidenceBars confidence={message.confidence} />
+              <span className="eq-conf-note">{message.confidence}% confident</span>
+            </h4>
+          )}
+          <ul>
+            {message.classification_reasons.map((reason, i) => (
+              <li key={i}>{reason}</li>
+            ))}
+          </ul>
+          {corrected && (
+            <p className="eq-correction">
+              {message.corrected_by.display_name} moved it to {meta.label}. The
+              correction is recorded.
+            </p>
+          )}
+        </div>
+      )}
+
+      {message.notes.length > 0 && (
+        <div className="eq-thread eq-notes">
+          <h4>Internal notes — the customer never sees these</h4>
+          {message.notes.map((note) => (
+            <div className="eq-sent eq-note" key={note.id}>
+              <div className="eq-sent-meta">
+                {formatSentAt(note.created_at)} · {note.author_name}
+                {note.from_email ? " · from the email thread" : ""}
+              </div>
+              <pre>{note.body_text}</pre>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {message.replies.length > 0 && (
+        <div className="eq-thread">
+          <h4>Replies sent</h4>
+          {message.replies.map((reply) => (
+            <div className="eq-sent" key={reply.id}>
+              <div className="eq-sent-meta">
+                {formatSentAt(reply.sent_at)} · from {message.mailbox}
+                {reply.sent_by ? ` · sent by ${reply.sent_by.display_name}` : ""}
+                {!reply.delivered && (
+                  <strong className="eq-undelivered">
+                    {" "}
+                    · saved here only, not emailed
+                  </strong>
+                )}
+              </div>
+              <pre>{reply.body_text}</pre>
+            </div>
+          ))}
+        </div>
+      )}
+
+      </div>
     </aside>
   );
 }
