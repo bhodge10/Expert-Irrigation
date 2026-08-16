@@ -95,6 +95,7 @@ function MessageCard({ message, selected, onSelect, quick }) {
   const meta = QUEUE_META[message.queue];
   const classes = ["eq-card", meta.cls];
   if (message.status === "handled") classes.push("done");
+  if (quick.assignOpen) classes.push("menu-open");
 
   return (
     <div

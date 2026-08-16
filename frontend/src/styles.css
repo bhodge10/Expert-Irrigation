@@ -340,6 +340,12 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(16, 35, 26, 0.07), 0 12px 28px rgba(16, 35, 26, 0.09);
 }
+/* The hover transform creates a stacking context that would trap an open
+   quick-action menu underneath the next card — lift the whole card while
+   its menu is open. */
+.eq-card.menu-open {
+  z-index: 40;
+}
 .eq-card[aria-current="true"] {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px rgba(16, 35, 26, 0.12), var(--shadow);
