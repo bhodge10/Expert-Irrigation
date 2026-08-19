@@ -374,6 +374,12 @@ def cmd_classify(args: argparse.Namespace) -> int:
             message.confidence = c.confidence
             message.is_urgent = c.is_urgent
             message.classification_reasons = c.reasons
+            # Privacy only ever tightens in a backfill: the model flagging
+            # old mail hides it, but it never un-hides what a person marked.
+            if c.is_private:
+                message.is_private = True
+                if not message.visible_to:
+                    message.visible_to = f",{message.mailbox.lower()},"
             if c.auto_handle:
                 message.status = HANDLED
                 message.handled_at = utcnow()
@@ -418,16 +424,20 @@ def cmd_draft(args: argparse.Namespace) -> int:
 
     from app.draft import draft_reply_text
     from app.models import OPEN
+    from app.privacy import load_patterns
 
     db = SessionLocal()
     graph = GraphClient() if settings.graph_configured else None
     try:
+        private_patterns = load_patterns(db)
         candidates = (
             db.query(Message)
             .filter(
                 Message.status == OPEN,
                 Message.queue.in_(("service", "sales")),
                 Message.draft_reply.is_(None),
+                # Private mail is never drafted unasked — same rule as ingest.
+                Message.is_private.is_(False),
             )
             .order_by(Message.id)
             .all()
@@ -447,6 +457,7 @@ def cmd_draft(args: argparse.Namespace) -> int:
                 subject=message.subject,
                 body=message.body_clean or message.body_text,
                 mailbox=message.mailbox,
+                private_senders=private_patterns,
             )
             if text is None:
                 failed += 1

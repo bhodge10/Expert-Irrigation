@@ -18,6 +18,7 @@ from .classify import _anthropic_client
 from .config import settings
 from .mail.cleaning import strip_quoted
 from .mail.html_text import best_body
+from .mail.rules import is_private
 
 log = logging.getLogger(__name__)
 
@@ -30,8 +31,8 @@ TONE_CACHE_SECONDS = 3600
 BODY_CHARS = 6000
 MAX_TOKENS = 8000
 
-# (fetched_at, rendered examples block)
-_tone_cache: tuple[float, str] | None = None
+# (fetched_at, private-senders key, rendered examples block)
+_tone_cache: tuple[float, frozenset, str] | None = None
 
 
 def _tone_mailbox() -> str:
@@ -39,25 +40,48 @@ def _tone_mailbox() -> str:
     return boxes[0] if boxes else ""
 
 
-def tone_examples(graph) -> str:
+def _recipient_addresses(raw: dict) -> list[str]:
+    out = []
+    for entry in (raw.get("toRecipients") or []) + (raw.get("ccRecipients") or []):
+        address = (entry or {}).get("emailAddress", {}).get("address", "")
+        if address:
+            out.append(address.strip().lower())
+    return out
+
+
+def tone_examples(graph, private_senders=()) -> str:
     """Craig's recent sent replies, rendered for the prompt. "" when
-    unavailable — the draft still happens, just from instructions alone."""
+    unavailable — the draft still happens, just from instructions alone.
+
+    A reply Craig sent TO a private sender is itself private — his half of a
+    payroll thread teaches tone as badly as it leaks — so anything addressed
+    to the private-senders list is dropped before rendering. The cache keys
+    on that list: blocking a sender takes effect on the next draft, not an
+    hour later.
+    """
     global _tone_cache
-    if _tone_cache and time.monotonic() - _tone_cache[0] < TONE_CACHE_SECONDS:
-        return _tone_cache[1]
+    key = frozenset(private_senders)
+    if (
+        _tone_cache
+        and _tone_cache[1] == key
+        and time.monotonic() - _tone_cache[0] < TONE_CACHE_SECONDS
+    ):
+        return _tone_cache[2]
 
     mailbox = _tone_mailbox()
     if graph is None or not mailbox:
-        return _tone_cache[1] if _tone_cache else ""
+        return _tone_cache[2] if _tone_cache and _tone_cache[1] == key else ""
 
     try:
         sent = graph.sent_messages(mailbox, top=TONE_FETCH)
     except Exception:
         log.exception("Couldn't fetch sent mail for tone examples")
-        return _tone_cache[1] if _tone_cache else ""
+        return _tone_cache[2] if _tone_cache and _tone_cache[1] == key else ""
 
     examples: list[str] = []
     for raw in sent:
+        if any(is_private(a, private_senders) for a in _recipient_addresses(raw)):
+            continue
         body_obj = raw.get("body") or {}
         html = body_obj.get("content") if body_obj.get("contentType") == "html" else None
         text = best_body(raw.get("bodyPreview"), html or body_obj.get("content"))
@@ -74,7 +98,7 @@ def tone_examples(graph) -> str:
         "Here are replies Craig actually sent recently. Match how they "
         "sound:\n\n" + "\n\n---\n\n".join(examples)
     )
-    _tone_cache = (time.monotonic(), block)
+    _tone_cache = (time.monotonic(), key, block)
     return block
 
 
@@ -111,6 +135,7 @@ def draft_reply_text(
     subject: str,
     body: str,
     mailbox: str,
+    private_senders=(),
 ) -> str | None:
     """One draft. Returns None on any failure — never raises, never blocks."""
     if not settings.classification_configured:
@@ -123,7 +148,9 @@ def draft_reply_text(
             f"Subject: {subject}\n"
             f"Body:\n{(body or '').strip()[:BODY_CHARS]}"
         )
-        return _call_draft(_system_blocks(tone_examples(graph)), user_content)
+        return _call_draft(
+            _system_blocks(tone_examples(graph, private_senders)), user_content
+        )
     except Exception:
         log.exception("Drafting failed for mail from %s", from_email)
         return None

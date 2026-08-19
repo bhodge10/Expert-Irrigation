@@ -68,6 +68,9 @@ class MessageOut(BaseModel):
     queue: str
     confidence: int
     is_urgent: bool
+    # Visible only to the people the email was addressed to. The server
+    # filters; this flag just lets the UI say so.
+    is_private: bool = False
     classification_reasons: list[str]
     assignee: UserOut | None = None
     status: str
@@ -139,6 +142,12 @@ class QueueIn(BaseModel):
 
 class StatusIn(BaseModel):
     status: str = Field(pattern="^(" + "|".join(STATUSES) + ")$")
+
+
+class PrivateFlagIn(BaseModel):
+    # True hides the message from everyone it wasn't addressed to; False
+    # releases one the sorting (or a person) flagged.
+    is_private: bool
 
 
 class ReplyIn(BaseModel):

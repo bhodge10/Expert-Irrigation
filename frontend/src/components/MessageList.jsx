@@ -122,6 +122,14 @@ function MessageCard({ message, selected, onSelect, quick }) {
       <div className="eq-row2">
         <span className={`eq-tag ${meta.tag}`}>{meta.label}</span>
         {message.is_urgent && <span className="eq-tag t-urgent">Emergency</span>}
+        {message.is_private && (
+          <span
+            className="eq-tag t-private"
+            title="Only the people this email was addressed to can see it"
+          >
+            Private
+          </span>
+        )}
         {message.status === "handled" && <span className="eq-tag t-plain">Handled</span>}
 
         <span className="eq-assign">

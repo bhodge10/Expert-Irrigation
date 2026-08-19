@@ -10,7 +10,7 @@ Two rules from the brief show up throughout this file:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
@@ -37,6 +37,7 @@ from ..schemas import (
     MessageListOut,
     MessageOut,
     NoteIn,
+    PrivateFlagIn,
     QueueCounts,
     QueueIn,
     ReplyIn,
@@ -47,9 +48,26 @@ from ..serializers import message_detail_out, message_out
 router = APIRouter(prefix="/api/messages", tags=["messages"])
 
 
-def _get_message(db: Session, message_id: int) -> Message:
+def _can_see(message: Message, user: User) -> bool:
+    """Private mail is for the people it was addressed to, nobody else."""
+    if not message.is_private:
+        return True
+    return f",{user.email.lower()}," in (message.visible_to or "")
+
+
+def _visibility_filter(user: User):
+    """The same rule as _can_see, for list and count queries."""
+    return or_(
+        Message.is_private.is_(False),
+        Message.visible_to.like(f"%,{user.email.lower()},%"),
+    )
+
+
+def _get_message(db: Session, message_id: int, user: User) -> Message:
     message = db.get(Message, message_id)
-    if message is None:
+    # A private message someone can't see 404s rather than 403s — "it isn't
+    # here" reveals nothing, "you can't have it" confirms it exists.
+    if message is None or not _can_see(message, user):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="That message isn't in the queue anymore.",
@@ -86,7 +104,7 @@ def list_messages(
     queue: str = Query("all", pattern="^(all|service|sales|undetermined|ignored)$"),
     scope: str = Query("open", pattern="^(open|mine|done)$"),
 ) -> MessageListOut:
-    q = db.query(Message)
+    q = db.query(Message).filter(_visibility_filter(user))
 
     if queue == "all":
         # "All" means all the mail worth a look — Ignored stays in its own
@@ -111,7 +129,7 @@ def list_messages(
     open_by_queue = {name: 0 for name in QUEUES}
     for name, count in (
         db.query(Message.queue, func.count(Message.id))
-        .filter(Message.status == OPEN)
+        .filter(Message.status == OPEN, _visibility_filter(user))
         .group_by(Message.queue)
         .all()
     ):
@@ -137,9 +155,38 @@ def list_messages(
 def get_message(
     message_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ) -> MessageDetailOut:
-    return message_detail_out(_get_message(db, message_id))
+    return message_detail_out(_get_message(db, message_id, user))
+
+
+@router.post("/{message_id}/private", response_model=MessageDetailOut)
+def set_private(
+    message_id: int,
+    payload: PrivateFlagIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> MessageDetailOut:
+    """Flag a message private, or release one the sorting flagged.
+
+    Only someone who can already see the message gets here. Marking it
+    private keeps the marker in the audience — hiding mail from yourself
+    is never what anyone means — alongside whoever it was addressed to.
+    """
+    message = _get_message(db, message_id, user)
+
+    if payload.is_private:
+        # Older rows predate visible_to, so rebuild the audience from what's
+        # known: whoever was already in it, the mailbox owner, the marker.
+        audience = {e for e in (message.visible_to or "").split(",") if e}
+        audience.add(message.mailbox.lower())
+        audience.add(user.email.lower())
+        message.visible_to = "," + ",".join(sorted(audience)) + ","
+    message.is_private = payload.is_private
+
+    db.commit()
+    db.refresh(message)
+    return message_detail_out(message)
 
 
 @router.post("/{message_id}/assign", response_model=MessageDetailOut)
@@ -149,7 +196,7 @@ def assign_message(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> MessageDetailOut:
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     if payload.assignee_id is not None:
         assignee = db.get(User, payload.assignee_id)
@@ -176,7 +223,7 @@ def move_queue(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> MessageDetailOut:
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     if payload.queue == message.queue:
         return message_detail_out(message)
@@ -210,7 +257,7 @@ def set_status(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ) -> MessageDetailOut:
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     if payload.status == HANDLED:
         message.status = HANDLED
@@ -240,7 +287,7 @@ def add_note(
     The poller writes notes here too, when the office replies to each other on
     a customer's own email thread.
     """
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     body = payload.body_text.strip()
     if not body:
@@ -277,7 +324,7 @@ def send_reply(
 
     Nothing sends automatically. This only ever runs because a human clicked.
     """
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     body = payload.body_text.strip()
     if not body:
@@ -335,7 +382,7 @@ def send_reply(
 def draft_message(
     message_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(current_user),
+    user: User = Depends(current_user),
 ) -> MessageDetailOut:
     """Generate (or regenerate) an AI draft for the composer, on demand.
 
@@ -350,10 +397,12 @@ def draft_message(
             detail="Drafting is off — ANTHROPIC_API_KEY isn't configured.",
         )
 
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     from ..draft import draft_reply_text
+    from ..privacy import load_patterns
 
+    patterns = load_patterns(db)
     if settings.graph_configured:
         with GraphClient() as graph:
             text = draft_reply_text(
@@ -363,6 +412,7 @@ def draft_message(
                 subject=message.subject,
                 body=message.body_clean or message.body_text,
                 mailbox=message.mailbox,
+                private_senders=patterns,
             )
     else:
         text = draft_reply_text(
@@ -372,6 +422,7 @@ def draft_message(
             subject=message.subject,
             body=message.body_clean or message.body_text,
             mailbox=message.mailbox,
+            private_senders=patterns,
         )
 
     if text is None:
@@ -399,7 +450,7 @@ def reject_message(
     verdict are exactly what the classifier learns from later, and Reopen
     undoes the clearing if the button was pressed by mistake.
     """
-    message = _get_message(db, message_id)
+    message = _get_message(db, message_id, user)
 
     if not any(e.kind == KIND_REJECTION for e in message.classification_events):
         db.add(

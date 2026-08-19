@@ -68,6 +68,9 @@ class Classification:
     source: str = "unsorted"
     # Sender was rejected repeatedly: file it handled so it never hits the queue.
     auto_handle: bool = False
+    # Personal or confidential mail — only the people it was addressed to
+    # should see it in the portal.
+    is_private: bool = False
 
 
 UNSORTED = Classification(
@@ -85,6 +88,9 @@ class _ModelVerdict(BaseModel):
     queue: Literal["service", "sales", "ignored", "undetermined"]
     confidence: int = Field(ge=0, le=100)
     is_urgent: bool
+    # Personal or confidential between sender and recipient — payroll, HR,
+    # legal, medical, family. Rules in prompts/classify.md.
+    is_private: bool
     reasons: list[str] = Field(min_length=1, max_length=4)
 
 
@@ -112,6 +118,27 @@ def _sender_events(db: Session, from_email: str) -> list[ClassificationEvent]:
     )
 
 
+def _sender_has_private_mail(db: Session, from_email: str) -> bool:
+    """Has anything from this sender been flagged private?
+
+    Sender rules carry no content, but they must not launder privacy away:
+    once someone's mail is private, a queue verdict on it teaching a rule
+    must not make the next email from them visible to everyone.
+    """
+    if not from_email:
+        return False
+    return bool(
+        db.execute(
+            select(Message.id)
+            .where(
+                func.lower(Message.from_email) == from_email.lower(),
+                Message.is_private.is_(True),
+            )
+            .limit(1)
+        ).first()
+    )
+
+
 def sender_verdict(db: Session, from_email: str) -> Classification | None:
     """What the office has already taught us about this sender, if anything."""
     events = _sender_events(db, from_email)
@@ -120,6 +147,7 @@ def sender_verdict(db: Session, from_email: str) -> Classification | None:
 
     rejections = [e for e in events if e.kind == KIND_REJECTION]
     latest = events[0]
+    stays_private = _sender_has_private_mail(db, from_email)
 
     if latest.kind == KIND_REJECTION and len(rejections) >= REJECTIONS_TO_AUTOFILE:
         return Classification(
@@ -132,6 +160,7 @@ def sender_verdict(db: Session, from_email: str) -> Classification | None:
             ],
             source="sender-rule",
             auto_handle=True,
+            is_private=stays_private,
         )
 
     if latest.kind in (KIND_CORRECTION, KIND_CONFIRMATION):
@@ -145,6 +174,7 @@ def sender_verdict(db: Session, from_email: str) -> Classification | None:
                 f"{'to' if verb == 'moved' else 'in'} {latest.to_queue}"
             ],
             source="sender-rule",
+            is_private=stays_private,
         )
 
     # A single rejection isn't a rule yet — let the model decide, with the
@@ -167,11 +197,19 @@ def few_shot_examples(db: Session, limit: int = FEW_SHOT_LIMIT) -> str:
     Corrections are the model's failures; confirmations are the balancing
     successes; rejections teach what this office considers noise. All three
     go in — training on failures alone over-corrects (decisions.md).
+
+    Private mail never does, whatever verdicts it carries: these examples
+    are pasted into every classify call, and a payroll paragraph has no
+    business riding along with a sprinkler question.
     """
     events = (
         db.execute(
             select(ClassificationEvent)
-            .where(ClassificationEvent.changed_by.isnot(None))
+            .join(Message, ClassificationEvent.message_id == Message.id)
+            .where(
+                ClassificationEvent.changed_by.isnot(None),
+                Message.is_private.is_(False),
+            )
             .order_by(ClassificationEvent.id.desc())
             .limit(limit)
         )
@@ -295,6 +333,9 @@ def model_verdict(
         is_urgent=verdict.is_urgent,
         reasons=reasons,
         source="model",
+        # Privacy rides independent of the confidence floor: a message the
+        # model can't place but reads as personal still hides from the room.
+        is_private=verdict.is_private,
     )
 
 

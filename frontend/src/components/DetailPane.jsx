@@ -146,6 +146,7 @@ export default function DetailPane({
   onReply,
   onReject,
   onDraft,
+  onPrivacy,
 }) {
   const [menu, setMenu] = useState(null); // "assign" | "move" | null
   const [composing, setComposing] = useState(false);
@@ -192,6 +193,14 @@ export default function DetailPane({
         <div className="eq-dmeta">
           <span className={`eq-tag ${meta.tag}`}>{meta.label}</span>
           {message.is_urgent && <span className="eq-tag t-urgent">Emergency</span>}
+          {message.is_private && (
+            <span
+              className="eq-tag t-private"
+              title="Only the people this email was addressed to can see it"
+            >
+              Private
+            </span>
+          )}
           {handled && <span className="eq-tag t-plain">Handled</span>}
           <strong>{message.from_name}</strong>
           <a href={`mailto:${message.from_email}`}>{message.from_email}</a>
@@ -291,6 +300,18 @@ export default function DetailPane({
                 Not valid
               </button>
             )}
+
+            <button
+              className="eq-btn ghost"
+              title={
+                message.is_private
+                  ? "Currently only the people it was addressed to can see it. This shows it to the whole office."
+                  : "Personal or confidential? Hide it from everyone this email wasn't addressed to."
+              }
+              onClick={() => onPrivacy(!message.is_private)}
+            >
+              {message.is_private ? "Make visible to all" : "Mark private"}
+            </button>
           </div>
         </div>
       )}

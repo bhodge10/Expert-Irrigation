@@ -43,7 +43,8 @@ export default function QueueRail({ queue, scope, counts, onQueue, onScope, onPr
         Mail is read as it arrives in Craig, Megan and Joyce's inboxes, then
         dropped into a queue. Undetermined waits for a human call; Ignored is
         mail nobody needs to answer. Wrong call? Move it — the correction is
-        recorded and the sorting learns.
+        recorded and the sorting learns. Mail that looks personal is marked
+        Private and shown only to the people it was addressed to.
       </div>
 
       <button className="eq-rail-link" onClick={onPrivateSenders}>

@@ -436,6 +436,10 @@ body {
   background: var(--wash);
   color: var(--muted);
 }
+.t-private {
+  background: #f7ecdc;
+  color: var(--amber);
+}
 
 /* confidence meter — the zone-dial signature */
 .eq-conf {

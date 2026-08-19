@@ -32,6 +32,23 @@ first, and to be honest about how sure you are.
   anything you genuinely can't place. When in doubt, this is the queue —
   a human deciding beats a wrong filing.
 
+## Private
+
+Some mail is confidential business between the sender and the person it was
+addressed to — not office work at all. Payroll and compensation, HR and
+personnel matters, banking and loan details, legal or medical correspondence,
+family and personal mail that happens to arrive at a work address. Mark those
+`is_private: true`, and the portal will show them only to the people the
+email was actually addressed to.
+
+Private is independent of the queue: a payroll notice can be ignored *and*
+private; a personal message you can't place is undetermined *and* private.
+
+Do not stretch it. A customer's message is never private — service and sales
+mail full of names, addresses and phone numbers is ordinary office work the
+whole team needs to see. When mail is genuinely confidential to its
+recipient, flag it; when it's merely about a person, don't.
+
 ## Urgent
 
 Mark a message urgent when there is active water loss, property damage, or an

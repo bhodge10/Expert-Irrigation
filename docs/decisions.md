@@ -333,3 +333,44 @@ Decisions inside the decision:
   and `app.privacy` (purge); tests in `test_private_senders.py` pin both.
 
 First entry after deploy: `@midwestpaylink.com`.
+
+## Private messages: flagged by the sorting, visible only to their recipients
+
+*2026-08-19, same day as the blocklist*
+
+The private-senders list stops known-private mail at the door. This handles
+the mail nobody predicted: the classifier now returns `is_private` alongside
+the queue (rules in `prompts/classify.md`, Craig-editable like everything
+else there), and a private message is shown only to logins whose email is in
+its audience — everyone the email was actually addressed to (To + Cc + the
+mailbox it arrived in, stored on the row as `visible_to`). Everyone else's
+list, counts and detail calls filter it server-side; a detail request from
+anyone else 404s rather than 403s, because "it isn't here" reveals nothing.
+
+What privacy means to the machinery:
+
+- **Few-shot examples exclude private mail** whatever verdicts it carries —
+  those examples are pasted into every classify call.
+- **Private mail is never auto-drafted** (ingest and the `manage.py draft`
+  backfill both skip it). Its recipient can still press "Draft with AI" —
+  a deliberate request is theirs to make.
+- **Sender rules can't launder privacy away**: a rule taught by verdicts on
+  a private sender's mail files the next email in the taught queue *and*
+  keeps it private.
+- **The tone sampler now respects the blocklist** — this closed the one real
+  leak found in review: Craig's *own sent replies* to a private sender (his
+  half of a payroll thread) were eligible tone examples. The sent-items
+  fetch now carries recipients, replies addressed to a listed sender are
+  dropped, and the cache keys on the list so a new block entry takes effect
+  on the next draft, not an hour later.
+
+People stay in charge: a "Mark private" / "Make visible to all" button sits
+in the detail pane. Marking private always keeps the marker and the mailbox
+owner in the audience — you can't hide a message from yourself. The verdicts
+aren't fed back to the classifier yet; prompt edits are the lever if it
+over- or under-flags.
+
+Known limits, accepted: a classification *failure* files unsorted and
+public — the model never read it, so it can't flag it. And privacy divides
+by recipient, not by content: mail addressed to craigz@ that his colleagues
+genuinely need is the release button's job.

@@ -276,6 +276,14 @@ export default function App() {
                     "Draft ready — read it before sending",
                   )
                 }
+                onPrivacy={(isPrivate) =>
+                  act(
+                    () => api.setPrivacy(detail.id, isPrivate),
+                    isPrivate
+                      ? "Marked private — only the people it was addressed to see it"
+                      : "Now visible to the whole office",
+                  )
+                }
               />
             )}
           </main>

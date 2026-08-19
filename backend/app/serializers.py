@@ -49,6 +49,7 @@ def _base_fields(message: Message) -> dict:
         "queue": message.queue,
         "confidence": message.confidence,
         "is_urgent": message.is_urgent,
+        "is_private": message.is_private,
         "classification_reasons": message.classification_reasons or [],
         "assignee": user_out(message.assignee),
         "status": message.status,

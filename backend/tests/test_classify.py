@@ -193,6 +193,7 @@ def test_model_verdict_is_applied(db, monkeypatch):
             queue="service",
             confidence=95,
             is_urgent=True,
+            is_private=False,
             reasons=["Active leak at an existing installation"],
         ),
     )
@@ -223,6 +224,7 @@ def test_below_the_confidence_floor_goes_to_undetermined(db, monkeypatch):
             queue="service",
             confidence=72,
             is_urgent=False,
+            is_private=False,
             reasons=["Might be a repair"],
         ),
     )

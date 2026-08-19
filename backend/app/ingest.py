@@ -134,6 +134,12 @@ def create_message(
         reasons.append(msg.review_reason)
     reasons.extend(c.reasons)
 
+    # Who may see it if it's private: everyone the mail actually went to,
+    # plus the mailbox it arrived in (BCC and distribution lists can keep
+    # that address out of To/Cc). Stored comma-wrapped for exact matching.
+    audience = {e for e in msg.to_recipients + msg.cc_recipients if e}
+    audience.add(msg.mailbox.lower())
+
     record = Message(
         graph_message_id=msg.graph_message_id or None,
         conversation_id=msg.conversation_id,
@@ -148,6 +154,8 @@ def create_message(
         queue=c.queue,
         confidence=c.confidence,
         is_urgent=c.is_urgent,
+        is_private=c.is_private,
+        visible_to="," + ",".join(sorted(audience)) + ",",
         classification_reasons=reasons,
         draft_reply=draft,
         status=HANDLED if c.auto_handle else OPEN,
@@ -211,6 +219,7 @@ def ingest_one(
     )
 
     existing = _existing_conversation(db, msg)
+    private_senders = load_patterns(db)
 
     # Only fetch headers when the sender is otherwise plausible — it's an extra
     # round trip per message and most mail doesn't need it.
@@ -230,7 +239,7 @@ def ingest_one(
         existing_is_handled=bool(existing and existing.status != OPEN),
         already_ingested=_already_ingested(db, msg.graph_message_id),
         headers=headers,
-        private_senders=load_patterns(db),
+        private_senders=private_senders,
     )
 
     if verdict.action is Action.SKIP:
@@ -260,8 +269,14 @@ def ingest_one(
     # Draft a reply for the messages someone will actually answer — service
     # and sales. Other is overwhelmingly noise; anything there can be drafted
     # on demand from the composer. Same pre-insert rule as classification.
+    # Private mail is never auto-drafted: its recipient can still ask for a
+    # draft, but nothing pushes its content through a prompt unasked.
     draft = None
-    if classification.queue in ("service", "sales") and not classification.auto_handle:
+    if (
+        classification.queue in ("service", "sales")
+        and not classification.auto_handle
+        and not classification.is_private
+    ):
         draft = draft_reply_text(
             graph,
             from_name=msg.from_name or msg.from_email,
@@ -269,6 +284,7 @@ def ingest_one(
             subject=msg.subject or "(no subject)",
             body=msg.body_clean or msg.body_text,
             mailbox=mailbox,
+            private_senders=private_senders,
         )
 
     record = create_message(db, msg, classification, draft)

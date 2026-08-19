@@ -221,7 +221,9 @@ class GraphClient:
             f"{GRAPH}/users/{mailbox}/mailFolders/sentitems/messages",
             params={
                 "$top": min(top, 100),
-                "$select": "subject,body,bodyPreview,sentDateTime",
+                # Recipients ride along so the tone sampler can drop replies
+                # sent to private senders before they reach any prompt.
+                "$select": "subject,body,bodyPreview,sentDateTime,toRecipients,ccRecipients",
                 "$orderby": "sentDateTime desc",
             },
         )
