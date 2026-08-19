@@ -1073,11 +1073,11 @@ input:focus-visible {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--amber);
   text-align: left;
 }
 .eq-rail-link:hover {
-  color: var(--ink);
+  color: var(--red);
   text-decoration: underline;
 }
 
