@@ -38,6 +38,12 @@ export const api = {
 
   users: () => request("/users"),
 
+  privateSenders: () => request("/private-senders"),
+  addPrivateSender: (pattern) =>
+    request("/private-senders", { method: "POST", body: { pattern } }),
+  removePrivateSender: (id) =>
+    request(`/private-senders/${id}`, { method: "DELETE" }),
+
   messages: (queue, scope) =>
     request(`/messages?queue=${encodeURIComponent(queue)}&scope=${encodeURIComponent(scope)}`),
   message: (id) => request(`/messages/${id}`),

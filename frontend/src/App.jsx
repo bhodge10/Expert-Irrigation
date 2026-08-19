@@ -4,6 +4,7 @@ import Avatar from "./components/Avatar";
 import DetailPane from "./components/DetailPane";
 import Login from "./components/Login";
 import MessageList from "./components/MessageList";
+import PrivateSenders from "./components/PrivateSenders";
 import QueueRail from "./components/QueueRail";
 import { QUEUE_META } from "./format";
 
@@ -23,6 +24,7 @@ export default function App() {
   const [detail, setDetail] = useState(null);
 
   const [toast, setToast] = useState(null); // { text, bad }
+  const [showPrivate, setShowPrivate] = useState(false);
 
   const say = useCallback((text, bad = false) => {
     setToast({ text, bad });
@@ -186,6 +188,7 @@ export default function App() {
               setScope(next);
               setSelectedId(null);
             }}
+            onPrivateSenders={() => setShowPrivate(true)}
           />
 
           <main className={detail ? "eq-main eq-split" : "eq-main"}>
@@ -277,6 +280,19 @@ export default function App() {
             )}
           </main>
         </div>
+
+        {showPrivate && (
+          <PrivateSenders
+            onClose={() => setShowPrivate(false)}
+            /* The purge may have taken the message that's open in the detail
+               pane with it, so drop the selection rather than show a ghost. */
+            onChanged={() => {
+              setSelectedId(null);
+              refreshList();
+            }}
+            say={say}
+          />
+        )}
 
         <div className="eq-foot">
           <span>Reading live mail — read-only, nothing sends yet.</span>

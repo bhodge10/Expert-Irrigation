@@ -63,6 +63,22 @@ def is_automated(from_email: str, headers: dict | None = None) -> bool:
     return False
 
 
+def is_private(from_email: str, private_senders) -> bool:
+    """Is this sender on the private list?
+
+    Entries are lowercase addresses, or whole domains with a leading "@".
+    The convention is shared with app.privacy — change one, change both.
+    """
+    email = (from_email or "").lower()
+    if not email or not private_senders:
+        return False
+    domain = "@" + email.rsplit("@", 1)[-1]
+    for pattern in private_senders:
+        if pattern == email or (pattern.startswith("@") and pattern == domain):
+            return True
+    return False
+
+
 def is_internal(msg: NormalizedMessage, internal_domain: str, website_senders) -> bool:
     """Office chatter — but never the website, which only looks internal."""
     if msg.from_email in set(website_senders):
@@ -102,12 +118,18 @@ def decide(
     existing_is_handled: bool = False,
     already_ingested: bool = False,
     headers: dict | None = None,
+    private_senders=(),
 ) -> Verdict:
     """Work out what should happen to this message.
 
     `existing_message_id` is the queue item already tracking this
     conversation_id, if there is one — the caller looks that up.
     """
+    # Privacy outranks everything, including the note-on-existing-thread
+    # path: a private sender replying on a thread we track must vanish too.
+    if is_private(msg.from_email, private_senders):
+        return Verdict(Action.SKIP, f"Private sender ({msg.from_email}).")
+
     if already_ingested:
         # The same email arriving in several monitored mailboxes is the normal
         # case here, not an edge case.

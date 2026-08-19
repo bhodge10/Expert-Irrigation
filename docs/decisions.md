@@ -293,3 +293,43 @@ building to capture this; Phase 1's schema already supports deriving it.
 Craig should be able to see the examples currently in play and delete one. A
 queue that changes behavior for reasons nobody can inspect is worse than one
 that's predictably a bit wrong.
+
+## Private senders: a portal-managed blocklist, because every login sees everything
+
+*2026-08-19*
+
+During Craig's first evaluation week, mail from the payroll company
+(`kturner@midwestpaylink.com`) landed in Ignored — correctly sorted, and
+still a problem, because the portal has no per-user visibility: every login
+sees every queue, Ignored included. Internal mail never enters (the
+`@expertsvc.com` skip), but a payroll conversation with an outside vendor
+looks exactly like customer mail to the ingestion rules.
+
+The fix is a **private-senders list**, managed in the portal ("Private
+senders…" at the bottom of the queue rail). An entry is an address or a
+whole domain (stored with a leading `@`); matching mail is skipped at
+ingest before anything is stored, and **adding an entry purges whatever
+that sender already had in the queue** — items, notes, replies and
+classification events, deleted outright, not hidden. Nothing in Outlook is
+touched, because ingestion only ever reads. Removing an entry lets new
+mail flow again; the purged mail stays gone.
+
+Decisions inside the decision:
+
+- **Every signed-in user can edit the list.** There is no admin role until
+  the SSO work lands, the office is four people, and a privacy control only
+  the consultant can operate means private mail sits visible while he's
+  found. Same principle as the classifier: a control everybody can inspect
+  beats one nobody can. Revisit with SSO.
+- **Domain matching is exact**, not suffix: `@paylink.com` does not catch
+  `midwestpaylink.com`, and subdomains don't match their parent. Nobody
+  should have to reason about accidental catches on a privacy feature.
+- **The purge takes whole queue items only.** A private sender's reply
+  that had already attached to *someone else's* item as a note is not
+  hunted down (notes don't store the author's address). The ingest skip
+  runs ahead of the note path, so from the moment an entry exists, no new
+  note from that sender can appear.
+- The matching convention lives in `app.mail.rules.is_private` (ingest)
+  and `app.privacy` (purge); tests in `test_private_senders.py` pin both.
+
+First entry after deploy: `@midwestpaylink.com`.

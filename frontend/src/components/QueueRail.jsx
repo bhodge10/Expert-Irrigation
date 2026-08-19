@@ -7,7 +7,7 @@ const SCOPES = [
   ["done", "Done"],
 ];
 
-export default function QueueRail({ queue, scope, counts, onQueue, onScope }) {
+export default function QueueRail({ queue, scope, counts, onQueue, onScope, onPrivateSenders }) {
   return (
     <nav className="eq-rail">
       <p className="eq-eyebrow">Queues</p>
@@ -45,6 +45,10 @@ export default function QueueRail({ queue, scope, counts, onQueue, onScope }) {
         mail nobody needs to answer. Wrong call? Move it — the correction is
         recorded and the sorting learns.
       </div>
+
+      <button className="eq-rail-link" onClick={onPrivateSenders}>
+        Private senders…
+      </button>
     </nav>
   );
 }

@@ -19,6 +19,7 @@ from .draft import draft_reply_text
 from .graph import GraphClient, GraphError
 from .mail.normalize import NormalizedMessage, normalize
 from .mail.rules import Action, decide
+from .privacy import load_patterns
 from .models import (
     HANDLED,
     KIND_MODEL,
@@ -229,6 +230,7 @@ def ingest_one(
         existing_is_handled=bool(existing and existing.status != OPEN),
         already_ingested=_already_ingested(db, msg.graph_message_id),
         headers=headers,
+        private_senders=load_patterns(db),
     )
 
     if verdict.action is Action.SKIP:

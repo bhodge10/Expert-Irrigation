@@ -6,6 +6,7 @@ Four tables carry the product plus one for login sessions:
   messages               one row per inbound customer email
   replies                one row per reply a human sent
   classification_events  every automatic sort and every human correction
+  private_senders        addresses and domains whose mail never enters
   sessions               server-side login sessions
 
 classification_events is the record of what the model gets wrong. It is what
@@ -275,6 +276,30 @@ class ClassificationEvent(Base):
 
     message: Mapped[Message] = relationship(back_populates="classification_events")
     changer: Mapped[User | None] = relationship(lazy="joined")
+
+
+class PrivateSender(Base):
+    """A sender whose mail must never appear in the portal.
+
+    The pattern is a lowercase address, or a whole domain stored with a
+    leading "@". Matching mail is skipped at ingest, and adding an entry
+    purges whatever that sender already had in the queue. Every portal user
+    can see and edit the list — there is no admin role yet, and a privacy
+    control nobody can inspect is worse than one everybody can.
+    """
+
+    __tablename__ = "private_senders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    added_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
+
+    adder: Mapped[User | None] = relationship(lazy="joined")
 
 
 class SessionToken(Base):

@@ -96,6 +96,24 @@ class MessageDetailOut(MessageOut):
     draft_reply: str | None = None
 
 
+class PrivateSenderOut(BaseModel):
+    id: int
+    # An address, or a whole domain with a leading "@".
+    pattern: str
+    created_at: datetime
+    added_by: UserOut | None = None
+
+
+class PrivateSenderIn(BaseModel):
+    pattern: str = Field(min_length=3, max_length=255)
+
+
+class PrivateSenderAddOut(BaseModel):
+    entry: PrivateSenderOut
+    # How many already-ingested messages the new entry removed.
+    purged: int
+
+
 class QueueCounts(BaseModel):
     # "all" excludes ignored — that bucket exists to stay out of the way.
     all: int

@@ -8,6 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import settings
 from .routers import auth as auth_router
 from .routers import messages as messages_router
+from .routers import private_senders as private_senders_router
 from .routers import users as users_router
 
 app = FastAPI(title="Expert Inbox Queue", version="0.1.0")
@@ -15,6 +16,7 @@ app = FastAPI(title="Expert Inbox Queue", version="0.1.0")
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
 app.include_router(messages_router.router)
+app.include_router(private_senders_router.router)
 
 
 @app.get("/api/health")
