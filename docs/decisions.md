@@ -374,3 +374,114 @@ Known limits, accepted: a classification *failure* files unsorted and
 public — the model never read it, so it can't flag it. And privacy divides
 by recipient, not by content: mail addressed to craigz@ that his colleagues
 genuinely need is the release button's job.
+
+## ServiceTitan: Phase 4 is allowed, and the API terms shape how it's built
+
+*2026-10-05*
+
+The brief said to check what Expert Irrigation's ServiceTitan plan allows
+before building Phase 4 against it. Checked, from ServiceTitan's own help
+pages, developer docs and API Terms of Use. The short version: a customer-
+built app is permitted on the right package, the three Phase 4 goals are
+all reachable through the v2 API, and the terms draw a hard line around
+AI that decides how the data may be used in the portal.
+
+**Why we want it.** The portal sorts mail and drafts replies but knows
+nothing about the people writing. ServiceTitan is where customers, memberships
+and jobs live. Phase 4 wants to (1) match the sender against ServiceTitan
+and show account, membership tier and open jobs in the detail pane, so "Re:
+Leak" is visibly a member with a job already on Thursday; (2) push new
+sales contacts into the CRM; (3) link reschedule requests to the job they're
+about. The first is the payoff and is read-only; the other two are writes.
+
+**What the plan allows:**
+
+- **Customer-built apps need "The Works" or "Enterprise Plus".** Starter and
+  Essentials can't create apps at all. No published API fee; the terms
+  reserve the right to charge. **Which package Expert Irrigation is on is the
+  open question** — nothing below matters until Craig answers it.
+- **Access path:** Craig emails `integrations@servicetitan.com` for an
+  Integration Environment (a clone of production, for development). An admin
+  with the "Generate API Application Key" and "Manage API Application
+  Access" permissions creates the app at developer.servicetitan.io (name,
+  org, home page URL, tenant ID, per-module View/Modify scopes) — that yields
+  the App Key, which works in both environments. Then Settings → Integrations
+  → API Application Access connects the app and issues a Client ID + Secret
+  per environment. ServiceTitan quotes 3–5 business days for portal access;
+  reports say 1–4 weeks is realistic. Sign in on the portal's **"ServiceTitan
+  Customers"** side, as a Production Environment User until the integration
+  clone exists.
+- **Who may build it.** "Tunneling" is prohibited: a third party asking the
+  customer to create an app and hand over its App Key, or being granted
+  app-creation rights on the customer's behalf. But Terms §2.2 lets a
+  customer give unique account credentials to "suitably qualified
+  professional information technology services providers, hired by you to
+  assist in managing the information technology services utilized solely by
+  you." So the app is a Custom Application registered under Expert
+  Irrigation's own account, Brad works under a named login Craig issues him,
+  and the IT-provider arrangement (including hosting on Brad's Render
+  account) gets confirmed in writing with integrations@ when the environment
+  is requested — not assumed.
+- **Auth:** OAuth 2.0 client credentials against
+  `https://auth.servicetitan.io/connect/token` (integration:
+  `auth-integration.`), API base `https://api.servicetitan.io` (integration:
+  `api-integration.`), headers `Authorization: Bearer` + `ST-App-Key`.
+  Tokens last 15 minutes, no refresh tokens. The four env vars already in
+  `.env.example` are the right set. Rate limit 60 calls/sec per app per
+  tenant — irrelevant at our volume.
+- **Endpoint coverage vs the spec:** match by **phone, yes**
+  (`GET /crm/v2/tenant/{t}/customers?phone=`, matches contacts' numbers).
+  Match by **email, no** — no endpoint filters on an email address;
+  customers filter by name/phone/address, contacts by name/title, contact
+  methods by value only within one contact. Membership tier: yes
+  (`/memberships/v2/tenant/{t}/memberships?customerIds=&status=Active`).
+  Open jobs: yes (`/jpm/v2/tenant/{t}/jobs?customerId=&jobStatus=`; statuses
+  Scheduled, Dispatched, InProgress, Hold, Completed, Canceled). Creating
+  customers/leads/bookings and rescheduling appointments all exist as
+  writes.
+- **The AI clauses (Terms §3.4, items 31–38) are the real constraint.** An
+  application that uses an AI system must disclose it at registration;
+  using one without disclosure and approval is a material breach. API data
+  may not be used to train, tune or benchmark AI, nor "as input to AI that
+  generates outputs for use by third parties" — a drafted reply to a customer
+  is exactly that. AI may not independently decide which endpoints to call.
+  And §5.2: no caching of API content beyond 24 hours. §5.1: a customer's
+  content may only be displayed to that customer (single tenant — fine).
+
+Decisions inside the decision:
+
+- **ServiceTitan data is display-only.** It appears in the detail pane and
+  nowhere else: never in the classify or draft prompts, never in the
+  few-shot examples, never in `classification_events`. The feedback loop
+  keeps learning from human verdicts on *mail*; the ServiceTitan card is
+  context for the human, not the model. This is what keeps the portal on the
+  right side of items 31 and 32.
+- **Disclose the AI at registration** even though ServiceTitan data never
+  touches it. The portal runs Claude; the app form asks; the answer is yes,
+  with the display-only boundary stated.
+- **All lookups are deterministic code, on demand, cached ≤ 24 hours.** No
+  local mirror of the customer list, no agent choosing endpoints. A lookup
+  runs when a message is opened (or at ingest, result cached on the row with
+  a timestamp and expired within the day).
+- **Matching is phone first, then name-with-email-verification.** Phone
+  numbers in the signature or body hit the customers filter directly. Failing
+  that, the sender's display name queries by `name`, and the candidate's
+  contacts (`/customers/{id}/contacts`) must contain the sender's email
+  before it counts as a match. No guesswork shown as fact; an unmatched
+  sender shows "not in ServiceTitan". Property-manager/HOA mail (see
+  mail-patterns.md) will often match the manager, not the occupant — the
+  card says who it matched.
+- **Read-only first.** Request View scopes on CRM, Memberships and JPM only.
+  The CRM push and reschedule-linking (writes) wait, like portal Send waits
+  on the stage-two Exchange grant — same guardrail, every write is a human
+  click, which also satisfies ServiceTitan's stated right to require human
+  authorization of writes for AI-using apps.
+- **The ingestion app registration in Entra stays untouched.** ServiceTitan
+  credentials are a separate secret set on Render; nothing about the Graph
+  side changes.
+
+Sources: help.servicetitan.com "Understand approved integration paths" and
+"Get started with API dev portal V2"; developer.servicetitan.io docs
+("Getting Access", "Making First API Call", "Create and Manage
+Applications"); servicetitan.com/legal/api-terms (§2.2, §3.4, §5.1, §5.2);
+endpoint parameters from the published v2 OpenAPI surface.
