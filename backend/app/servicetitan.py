@@ -327,6 +327,14 @@ class ServiceTitanClient:
             pageSize=max(1, min(limit, 50)),
         )
 
+    def recent_jobs(self, limit: int = 5) -> list[dict[str, Any]]:
+        """The tenant's most recently changed jobs, any customer. Only
+        `manage.py lookup --recent` uses this — a way to find a real customer
+        to test the card on without knowing a number."""
+        return self._list(
+            "jpm/v2/tenant/{t}/jobs", sort="-ModifiedOn", pageSize=max(1, min(limit, 50))
+        )
+
     def job_types(self, ids: list[int]) -> list[dict[str, Any]]:
         if not ids:
             return []

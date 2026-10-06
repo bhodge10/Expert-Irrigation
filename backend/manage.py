@@ -14,6 +14,7 @@
                                              one read per granted scope
     python manage.py lookup ID|--phone N     build the ServiceTitan card for a
                                              queued message, or for a number
+    python manage.py lookup --recent         ...for whoever's job changed last
     python manage.py classify                sort the unclassified open messages
                                              through the Claude model
     python manage.py draft                   draft replies for open service and
@@ -549,12 +550,14 @@ def cmd_lookup(args: argparse.Namespace) -> int:
     if not settings.servicetitan_configured:
         print("ServiceTitan isn't configured — see docs/servicetitan-setup.md.")
         return 1
-    if not args.message_id and not args.phone:
-        print("Give a message id, or --phone NUMBER.", file=sys.stderr)
+    if not args.message_id and not args.phone and not args.recent:
+        print("Give a message id, --phone NUMBER, or --recent.", file=sys.stderr)
         return 1
 
     from app.lookup import build_card
+    from app.servicetitan import normalize_phone
 
+    who: dict | None = None
     if args.message_id:
         db = SessionLocal()
         try:
@@ -570,12 +573,29 @@ def cmd_lookup(args: argparse.Namespace) -> int:
             print(f"#{message.id}  {message.from_name} <{message.from_email}>  {message.subject[:48]}")
         finally:
             db.close()
-    else:
+    elif args.phone:
         who = dict(from_name="", from_email="", body=args.phone)
         print(f"Phone {args.phone}")
 
     with ServiceTitanClient() as st:
         try:
+            if who is None:
+                # --recent: the customer behind the latest changed job that
+                # has a number on file, looked up the way the portal would.
+                for job in st.recent_jobs(limit=10):
+                    for contact in st.customer_contacts(job["customerId"]):
+                        if contact.get("type") not in ("Phone", "MobilePhone"):
+                            continue
+                        number = normalize_phone(contact.get("value"))
+                        if number:
+                            who = dict(from_name="", from_email="", body=number)
+                            break
+                    if who:
+                        print(f"Recent job #{job.get('jobNumber', job['id'])} — its customer's number {who['body']}")
+                        break
+                if who is None:
+                    print("None of the ten most recently changed jobs has a customer with a phone on file.")
+                    return 1
             card = build_card(st, **who)
         except ServiceTitanError as exc:
             print(f"Lookup failed: {exc}")
@@ -681,6 +701,11 @@ def main() -> int:
     )
     p_lk.add_argument("message_id", type=int, nargs="?", default=0)
     p_lk.add_argument("--phone", default="")
+    p_lk.add_argument(
+        "--recent",
+        action="store_true",
+        help="pick the customer behind the most recently changed job",
+    )
     p_lk.set_defaults(func=cmd_lookup)
 
     p_cl = sub.add_parser(
