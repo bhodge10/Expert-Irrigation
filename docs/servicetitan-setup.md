@@ -125,6 +125,14 @@ and prints the record count — never a record. Every line should say `ok`.
 re-approved since the scopes changed. `No token` means the client ID or
 secret is wrong, or was issued for the other environment.
 
+To see the matching work on a real record, build a card for one queued
+message or for a phone number — nothing is cached by this command:
+
+```powershell
+.venv\Scripts\python.exe manage.py lookup 123
+.venv\Scripts\python.exe manage.py lookup --phone 8595550100
+```
+
 ## Part 5 — The integration environment (optional, not yet requested)
 
 ServiceTitan will provision an **Integration Environment**: a clone of

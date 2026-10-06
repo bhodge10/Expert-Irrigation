@@ -17,6 +17,7 @@ from .config import settings
 from .db import SessionLocal
 from .graph import GraphClient
 from .ingest import poll_all
+from .lookup import expire_cards
 
 log = logging.getLogger("worker")
 
@@ -68,6 +69,10 @@ def run() -> int:
                 result = poll_all(db, graph)
                 if result.created or result.noted or result.failed:
                     log.info("Cycle complete: %s", result)
+                # A ServiceTitan card may sit on a row for a day, no longer.
+                expired = expire_cards(db)
+                if expired:
+                    log.info("Cleared %d ServiceTitan card(s) older than a day.", expired)
             except Exception:
                 # A cycle failing must never kill the worker — Render would
                 # restart it, and a crash loop is harder to diagnose than a

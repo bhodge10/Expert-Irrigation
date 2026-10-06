@@ -12,6 +12,8 @@
                                              read-only
     python manage.py checkservicetitan       prove the ServiceTitan connection,
                                              one read per granted scope
+    python manage.py lookup ID|--phone N     build the ServiceTitan card for a
+                                             queued message, or for a number
     python manage.py classify                sort the unclassified open messages
                                              through the Claude model
     python manage.py draft                   draft replies for open service and
@@ -540,6 +542,70 @@ def cmd_draft(args: argparse.Namespace) -> int:
         db.close()
 
 
+def cmd_lookup(args: argparse.Namespace) -> int:
+    """Build a ServiceTitan card and print it — for checking the matching
+    against real data without opening the portal. Nothing is cached.
+    """
+    if not settings.servicetitan_configured:
+        print("ServiceTitan isn't configured — see docs/servicetitan-setup.md.")
+        return 1
+    if not args.message_id and not args.phone:
+        print("Give a message id, or --phone NUMBER.", file=sys.stderr)
+        return 1
+
+    from app.lookup import build_card
+
+    if args.message_id:
+        db = SessionLocal()
+        try:
+            message = db.get(Message, args.message_id)
+            if message is None:
+                print(f"No message #{args.message_id}.", file=sys.stderr)
+                return 1
+            who = dict(
+                from_name=message.from_name,
+                from_email=message.from_email,
+                body=message.body_text or "",
+            )
+            print(f"#{message.id}  {message.from_name} <{message.from_email}>  {message.subject[:48]}")
+        finally:
+            db.close()
+    else:
+        who = dict(from_name="", from_email="", body=args.phone)
+        print(f"Phone {args.phone}")
+
+    with ServiceTitanClient() as st:
+        try:
+            card = build_card(st, **who)
+        except ServiceTitanError as exc:
+            print(f"Lookup failed: {exc}")
+            return 1
+
+    if card.status != "matched":
+        print(f"{card.status} — {card.phones_tried} phone number(s) tried.")
+        return 0
+
+    c = card.customer
+    how = f"phone {card.matched_phone}" if card.matched_by == "phone" else "name + email"
+    print(f"matched on {how}")
+    print(f"  {c.name}  [{c.type or '?'}{', inactive' if not c.active else ''}{', DO NOT SERVICE' if c.do_not_service else ''}]")
+    if c.address:
+        print(f"  {c.address}")
+    for contact in c.contacts:
+        print(f"  {contact.type:<12} {contact.value}")
+    for m in card.memberships:
+        print(f"  membership   {m.type} — {m.status}")
+    for j in card.open_jobs:
+        when = f"  next {j.next_appointment:%b %d %H:%M}" if j.next_appointment else ""
+        print(f"  open job     #{j.number} {j.type} — {j.status}{when}  {j.summary[:40]}")
+    for j in card.recent_jobs:
+        done = f" ({j.completed_on:%b %d %Y})" if j.completed_on else ""
+        print(f"  recent job   #{j.number} {j.type}{done}")
+    for other in card.other_matches:
+        print(f"  also matches {other.name}  {other.address}")
+    return 0
+
+
 def cmd_users(_: argparse.Namespace) -> int:
     db = SessionLocal()
     try:
@@ -609,6 +675,13 @@ def main() -> int:
         "checkservicetitan", help="prove the ServiceTitan connection, read-only"
     )
     p_cs.set_defaults(func=cmd_checkservicetitan)
+
+    p_lk = sub.add_parser(
+        "lookup", help="build the ServiceTitan card for a message or a phone number"
+    )
+    p_lk.add_argument("message_id", type=int, nargs="?", default=0)
+    p_lk.add_argument("--phone", default="")
+    p_lk.set_defaults(func=cmd_lookup)
 
     p_cl = sub.add_parser(
         "classify", help="sort unclassified open messages with the Claude model"

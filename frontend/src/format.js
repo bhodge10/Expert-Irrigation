@@ -42,6 +42,14 @@ export function formatSentAt(iso) {
   });
 }
 
+/* A plain calendar date — memberships, completed jobs. */
+export function formatDate(iso) {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  return at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+
 export function snippet(text, max = 150) {
   const flat = (text || "").replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;

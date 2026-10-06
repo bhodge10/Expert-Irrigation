@@ -17,6 +17,7 @@ from ..auth import current_user
 from ..config import settings
 from ..db import get_db, utcnow
 from ..graph import GraphClient, GraphError
+from ..lookup import card_for
 from ..models import (
     HANDLED,
     IGNORED,
@@ -42,6 +43,7 @@ from ..schemas import (
     QueueIn,
     ReplyIn,
     StatusIn,
+    StCard,
 )
 from ..serializers import message_detail_out, message_out
 
@@ -435,6 +437,23 @@ def draft_message(
     db.commit()
     db.refresh(message)
     return message_detail_out(message)
+
+
+@router.get("/{message_id}/servicetitan", response_model=StCard)
+def servicetitan_card(
+    message_id: int,
+    refresh: bool = Query(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> StCard:
+    """Who the sender is in ServiceTitan: account, membership, open jobs.
+
+    Display-only — this response is the one place the data goes. Built on
+    first open, served from the row for a day after, rebuilt on refresh.
+    Same visibility rule as the message itself.
+    """
+    message = _get_message(db, message_id, user)
+    return card_for(db, message, refresh=refresh)
 
 
 @router.post("/{message_id}/reject", response_model=MessageDetailOut)

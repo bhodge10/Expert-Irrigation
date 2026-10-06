@@ -154,6 +154,15 @@ class Message(Base):
     # column until a human reads it and presses Send — nothing sends itself.
     draft_reply: Mapped[str | None] = mapped_column(Text)
 
+    # Phase 4: the ServiceTitan card, built when the message is opened and
+    # shown in the detail pane. Display-only and short-lived: the API terms
+    # cap caching at 24 hours, so the worker clears anything older. Never
+    # read by the classifier or the drafter.
+    servicetitan_card: Mapped[dict | None] = mapped_column(JSON)
+    servicetitan_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+
     assignee_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )

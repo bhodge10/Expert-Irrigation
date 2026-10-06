@@ -18,7 +18,7 @@ The one-sentence goal: **the owner stops being a router.**
 | 1 | Portal shell running on seeded data | **Done** |
 | 2 | Microsoft Graph ingestion | **Done** — live on Render |
 | 3 | Classification and drafted replies | **Done** — sending waits on the stage-two Exchange grant |
-| 4 | ServiceTitan lookup and write-back | **In progress** — read-only connection; lookup card next |
+| 4 | ServiceTitan lookup and write-back | **In progress** — read-only lookup card in the detail pane; write-back deferred |
 
 Phase 1 has no Microsoft connection and no AI. The queue, the login, the
 assign/move/handle/reply actions and the whole interface are real and running

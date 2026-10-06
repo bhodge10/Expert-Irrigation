@@ -155,3 +155,72 @@ class ReplyIn(BaseModel):
     # Sending a reply marks the message handled by default. A user can turn
     # that off if the conversation is still open.
     mark_handled: bool = True
+
+
+# --- Phase 4: the ServiceTitan card ------------------------------------------
+# Everything below is display-only. It's served to the detail pane and kept on
+# the message row for at most a day; it is never put into a prompt.
+
+
+class StContact(BaseModel):
+    type: str  # Phone, MobilePhone, Email, Fax
+    value: str
+
+
+class StCustomer(BaseModel):
+    id: int
+    name: str
+    type: str | None = None  # Residential / Commercial
+    address: str = ""
+    active: bool = True
+    do_not_service: bool = False
+    contacts: list[StContact] = []
+
+
+class StMembership(BaseModel):
+    id: int
+    type: str
+    status: str  # Active, Suspended, Expired, Canceled
+    from_date: datetime | None = None
+    to_date: datetime | None = None
+
+
+class StJob(BaseModel):
+    id: int
+    number: str
+    type: str
+    status: str  # Scheduled, Dispatched, InProgress, Hold, Completed, Canceled
+    summary: str = ""
+    next_appointment: datetime | None = None
+    completed_on: datetime | None = None
+
+
+class StMatch(BaseModel):
+    id: int
+    name: str
+    address: str = ""
+
+
+class StCard(BaseModel):
+    """What the detail pane shows about the sender.
+
+    off        ServiceTitan isn't configured; the pane shows nothing.
+    matched    a customer was found — the rest of the card is filled in.
+    unmatched  nothing matched by phone or by verified name.
+    error      the lookup failed; nothing was cached, try again.
+    """
+
+    status: str = Field(pattern="^(off|matched|unmatched|error)$")
+    checked_at: datetime | None = None
+    # True when served from the row rather than built just now.
+    cached: bool = False
+    matched_by: str | None = None  # "phone" or "name"
+    matched_phone: str | None = None
+    phones_tried: int = 0
+    customer: StCustomer | None = None
+    memberships: list[StMembership] = []
+    open_jobs: list[StJob] = []
+    recent_jobs: list[StJob] = []
+    # When a phone number sits on more than one account.
+    other_matches: list[StMatch] = []
+    error: str | None = None

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import ConfidenceBars from "./ConfidenceBars";
+import ServiceTitanCard from "./ServiceTitanCard";
 import { QUEUE_META, formatSentAt, formatWhen } from "../format";
 
 function AssignMenu({ message, users, me, onAssign }) {
@@ -317,6 +318,10 @@ export default function DetailPane({
       )}
 
       <div className="eq-dscroll">
+      {/* Who this is, as far as ServiceTitan knows. Display-only: nothing in
+          this card goes anywhere but this pane. */}
+      <ServiceTitanCard messageId={message.id} />
+
       <div className="eq-body">{message.body_text}</div>
 
       {message.classification_reasons.length > 0 && (

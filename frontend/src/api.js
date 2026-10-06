@@ -64,6 +64,8 @@ export const api = {
       body: { is_private: isPrivate },
     }),
   draftReply: (id) => request(`/messages/${id}/draft`, { method: "POST" }),
+  serviceTitan: (id, refresh = false) =>
+    request(`/messages/${id}/servicetitan${refresh ? "?refresh=true" : ""}`),
   addNote: (id, bodyText) =>
     request(`/messages/${id}/notes`, {
       method: "POST",
