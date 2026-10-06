@@ -642,7 +642,9 @@ def cmd_lookup(args: argparse.Namespace) -> int:
     for m in card.memberships:
         print(f"  membership   {m.type} — {m.status}")
     for j in card.open_jobs:
-        when = f"  next {j.next_appointment:%b %d %H:%M}" if j.next_appointment else ""
+        # UTC on purpose: the shell this runs in has no idea where the office
+        # is. The portal shows the same visit in the viewer's local time.
+        when = f"  next {j.next_appointment:%b %d %H:%M} UTC" if j.next_appointment else ""
         print(f"  open job     #{j.number} {j.type} — {j.status}{when}  {j.summary[:40]}")
     for j in card.recent_jobs:
         done = f" ({j.completed_on:%b %d %Y})" if j.completed_on else ""
