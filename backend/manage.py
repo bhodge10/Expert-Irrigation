@@ -15,6 +15,8 @@
     python manage.py lookup ID|--phone N     build the ServiceTitan card for a
                                              queued message, or for a number
     python manage.py lookup --recent         ...for whoever's job changed last
+    python manage.py lookup --member         ...for someone with a membership
+    python manage.py lookup --scheduled      ...for someone with a visit booked
     python manage.py classify                sort the unclassified open messages
                                              through the Claude model
     python manage.py draft                   draft replies for open service and
@@ -543,6 +545,25 @@ def cmd_draft(args: argparse.Namespace) -> int:
         db.close()
 
 
+def _who_for_customer(st: ServiceTitanClient, customer_id: int) -> dict | None:
+    """What an email from this customer would carry — their name, their
+    address and a number in the body — so build_card can match them the
+    way it matches real mail. None if the account has neither on file."""
+    from app.servicetitan import normalize_phone
+
+    record = st.customer(customer_id)
+    phone = email = ""
+    for contact in st.customer_contacts(customer_id):
+        kind, value = contact.get("type"), contact.get("value") or ""
+        if kind in ("Phone", "MobilePhone") and not phone:
+            phone = normalize_phone(value) or ""
+        elif kind == "Email" and not email:
+            email = value
+    if not phone and not email:
+        return None
+    return dict(from_name=record.get("name") or "", from_email=email, body=phone)
+
+
 def cmd_lookup(args: argparse.Namespace) -> int:
     """Build a ServiceTitan card and print it — for checking the matching
     against real data without opening the portal. Nothing is cached.
@@ -550,12 +571,11 @@ def cmd_lookup(args: argparse.Namespace) -> int:
     if not settings.servicetitan_configured:
         print("ServiceTitan isn't configured — see docs/servicetitan-setup.md.")
         return 1
-    if not args.message_id and not args.phone and not args.recent:
-        print("Give a message id, --phone NUMBER, or --recent.", file=sys.stderr)
+    if not (args.message_id or args.phone or args.recent or args.member or args.scheduled):
+        print("Give a message id, --phone NUMBER, --recent, --member or --scheduled.", file=sys.stderr)
         return 1
 
     from app.lookup import build_card
-    from app.servicetitan import normalize_phone
 
     who: dict | None = None
     if args.message_id:
@@ -580,21 +600,27 @@ def cmd_lookup(args: argparse.Namespace) -> int:
     with ServiceTitanClient() as st:
         try:
             if who is None:
-                # --recent: the customer behind the latest changed job that
-                # has a number on file, looked up the way the portal would.
-                for job in st.recent_jobs(limit=10):
-                    for contact in st.customer_contacts(job["customerId"]):
-                        if contact.get("type") not in ("Phone", "MobilePhone"):
-                            continue
-                        number = normalize_phone(contact.get("value"))
-                        if number:
-                            who = dict(from_name="", from_email="", body=number)
-                            break
+                # --recent / --member / --scheduled: find a real customer to
+                # test on, then look them up the way the portal would — by a
+                # number off their account, or by name with their email.
+                if args.member:
+                    label = "an active membership"
+                    customer_ids = [m["customerId"] for m in st.recent_memberships(limit=10)]
+                elif args.scheduled:
+                    label = "a visit booked"
+                    customer_ids = [
+                        j["customerId"] for j in st.recent_jobs(limit=10, status="Scheduled")
+                    ]
+                else:
+                    label = "a recently changed job"
+                    customer_ids = [j["customerId"] for j in st.recent_jobs(limit=10)]
+                for customer_id in customer_ids:
+                    who = _who_for_customer(st, customer_id)
                     if who:
-                        print(f"Recent job #{job.get('jobNumber', job['id'])} — its customer's number {who['body']}")
+                        print(f"Customer #{customer_id}, picked for having {label}")
                         break
                 if who is None:
-                    print("None of the ten most recently changed jobs has a customer with a phone on file.")
+                    print(f"Couldn't find a customer with {label} and a phone or email on file.")
                     return 1
             card = build_card(st, **who)
         except ServiceTitanError as exc:
@@ -705,6 +731,12 @@ def main() -> int:
         "--recent",
         action="store_true",
         help="pick the customer behind the most recently changed job",
+    )
+    p_lk.add_argument(
+        "--member", action="store_true", help="pick a customer with an active membership"
+    )
+    p_lk.add_argument(
+        "--scheduled", action="store_true", help="pick a customer with a visit booked"
     )
     p_lk.set_defaults(func=cmd_lookup)
 

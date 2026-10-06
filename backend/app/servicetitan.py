@@ -327,12 +327,32 @@ class ServiceTitanClient:
             pageSize=max(1, min(limit, 50)),
         )
 
-    def recent_jobs(self, limit: int = 5) -> list[dict[str, Any]]:
-        """The tenant's most recently changed jobs, any customer. Only
-        `manage.py lookup --recent` uses this — a way to find a real customer
-        to test the card on without knowing a number."""
+    def customer(self, customer_id: int) -> dict[str, Any]:
+        return self._get(f"crm/v2/tenant/{{t}}/customers/{int(customer_id)}")
+
+    # The three reads below exist for `manage.py lookup --recent / --member /
+    # --scheduled`: ways to find a real customer to test the card on without
+    # knowing anyone's number. The portal never calls them.
+
+    def recent_jobs(
+        self, limit: int = 5, status: str | None = None
+    ) -> list[dict[str, Any]]:
+        """The tenant's most recently changed jobs, any customer."""
         return self._list(
-            "jpm/v2/tenant/{t}/jobs", sort="-ModifiedOn", pageSize=max(1, min(limit, 50))
+            "jpm/v2/tenant/{t}/jobs",
+            jobStatus=status,
+            sort="-ModifiedOn",
+            pageSize=max(1, min(limit, 50)),
+        )
+
+    def recent_memberships(
+        self, limit: int = 5, status: str = "Active"
+    ) -> list[dict[str, Any]]:
+        """Some memberships with this status, any customer."""
+        return self._list(
+            "memberships/v2/tenant/{t}/memberships",
+            status=status,
+            pageSize=max(1, min(limit, 50)),
         )
 
     def job_types(self, ids: list[int]) -> list[dict[str, Any]]:

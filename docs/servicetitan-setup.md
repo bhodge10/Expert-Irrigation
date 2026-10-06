@@ -126,12 +126,19 @@ re-approved since the scopes changed. `No token` means the client ID or
 secret is wrong, or was issued for the other environment.
 
 To see the matching work on a real record, build a card for one queued
-message or for a phone number — nothing is cached by this command:
+message, for a phone number, or for a customer the command picks itself —
+nothing is cached by any of these:
 
 ```powershell
-.venv\Scripts\python.exe manage.py lookup 123
+.venv\Scripts\python.exe manage.py lookup 123              # a queued message
 .venv\Scripts\python.exe manage.py lookup --phone 8595550100
+.venv\Scripts\python.exe manage.py lookup --recent         # whoever's job changed last
+.venv\Scripts\python.exe manage.py lookup --member         # someone with an active membership
+.venv\Scripts\python.exe manage.py lookup --scheduled      # someone with a visit booked
 ```
+
+On Render the same commands run from the web service's Shell with plain
+`python` — the service's environment already holds the four values.
 
 ## Part 5 — The integration environment (optional, not yet requested)
 

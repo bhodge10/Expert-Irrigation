@@ -129,6 +129,9 @@ def test_lookup_paths_and_parameters():
         st.jobs(55)
         st.appointments(900)
         st.recent_jobs(limit=3)
+        st.recent_jobs(limit=3, status="Scheduled")
+        st.recent_memberships(limit=4)
+        st.customer(77)
         assert st.find_customers_by_name("Jo") == []  # too short to ask
         assert st.find_customers_by_phone("not a number") == []
 
@@ -140,6 +143,9 @@ def test_lookup_paths_and_parameters():
         "/jpm/v2/tenant/123/jobs",
         "/jpm/v2/tenant/123/appointments",
         "/jpm/v2/tenant/123/jobs",
+        "/jpm/v2/tenant/123/jobs",
+        "/memberships/v2/tenant/123/memberships",
+        "/crm/v2/tenant/123/customers/77",
     ]
     assert seen[1].url.params["customerIds"] == "55"
     assert seen[1].url.params["status"] == "Active"
@@ -150,6 +156,10 @@ def test_lookup_paths_and_parameters():
     assert seen[5].url.params["sort"] == "-ModifiedOn"
     assert seen[5].url.params["pageSize"] == "3"
     assert "customerId" not in seen[5].url.params
+    assert "jobStatus" not in seen[5].url.params
+    assert seen[6].url.params["jobStatus"] == "Scheduled"
+    assert seen[7].url.params["status"] == "Active"
+    assert "customerIds" not in seen[7].url.params
 
 
 def test_a_failed_read_raises_with_the_status():
