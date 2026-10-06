@@ -1,7 +1,8 @@
 """Shared test guardrails.
 
 Settings load from the real .env, which on a configured machine holds live
-Microsoft and Anthropic credentials. Tests must never touch either service —
+Microsoft, Anthropic and ServiceTitan credentials. Tests must never touch any
+of those services —
 this blanks the credentials for every test, whatever the machine has. Tests
 that exercise "configured" code paths set a fake key explicitly.
 """
@@ -17,3 +18,7 @@ def no_real_apis(monkeypatch):
     monkeypatch.setattr(settings, "ms_tenant_id", "", raising=False)
     monkeypatch.setattr(settings, "ms_client_id", "", raising=False)
     monkeypatch.setattr(settings, "ms_client_secret", "", raising=False)
+    monkeypatch.setattr(settings, "servicetitan_app_key", "", raising=False)
+    monkeypatch.setattr(settings, "servicetitan_tenant_id", "", raising=False)
+    monkeypatch.setattr(settings, "servicetitan_client_id", "", raising=False)
+    monkeypatch.setattr(settings, "servicetitan_client_secret", "", raising=False)

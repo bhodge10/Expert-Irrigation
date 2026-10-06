@@ -17,6 +17,7 @@ from app import draft as draft_mod
 from app import ingest as ingest_mod
 from app.auth import current_user
 from app.classify import Classification, few_shot_examples, sender_verdict
+from app.config import settings
 from app.db import Base, get_db, utcnow
 from app.main import app
 from app.models import (
@@ -265,7 +266,10 @@ def sent_reply(text, to):
 
 
 @pytest.fixture(autouse=True)
-def fresh_tone_cache():
+def fresh_tone_cache(monkeypatch):
+    # The sampler reads the first monitored mailbox's sent items. Pin one so
+    # these tests don't depend on a .env being present on the machine.
+    monkeypatch.setattr(settings, "monitored_mailboxes", "craigz@expertsvc.com")
     draft_mod._tone_cache = None
     yield
     draft_mod._tone_cache = None

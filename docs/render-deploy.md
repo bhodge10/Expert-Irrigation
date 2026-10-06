@@ -16,8 +16,8 @@ Render dashboard → **New +** → **Blueprint** → connect the
 
 ## 2. Fill the secrets when prompted
 
-The blueprint creates an env group `expert-inbox-secrets` and asks for four
-values (same ones as the local `.env`):
+The blueprint creates an env group `expert-inbox-secrets` and asks for the
+secret values (same ones as the local `.env`):
 
 | Key | Where it comes from |
 |---|---|
@@ -25,6 +25,10 @@ values (same ones as the local `.env`):
 | `MS_CLIENT_ID` | Same page → Application (client) ID |
 | `MS_CLIENT_SECRET` | Prefer a **second** client secret created just for Render (Certificates & secrets → New) so laptop and production are separately revocable |
 | `ANTHROPIC_API_KEY` | console.anthropic.com — again, a second key named "render" keeps them separable |
+| `SERVICETITAN_APP_KEY` | ServiceTitan developer portal → My Apps → the app → Keys (added 2026-10-05; docs/servicetitan-setup.md) |
+| `SERVICETITAN_TENANT_ID` | Same portal → App Connections → Tenant/Network ID |
+| `SERVICETITAN_CLIENT_ID` | App Connections, once the tenant has approved the app |
+| `SERVICETITAN_CLIENT_SECRET` | Generated on the same row — shown once |
 
 Everything else (mailboxes, model, empty category vars) is already in the
 blueprint with the right values.

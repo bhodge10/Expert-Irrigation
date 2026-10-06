@@ -10,6 +10,8 @@
                                              corrected it
     python manage.py checkgraph              prove the Microsoft 365 connection,
                                              read-only
+    python manage.py checkservicetitan       prove the ServiceTitan connection,
+                                             one read per granted scope
     python manage.py classify                sort the unclassified open messages
                                              through the Claude model
     python manage.py draft                   draft replies for open service and
@@ -31,6 +33,7 @@ from app.db import SessionLocal, utcnow
 from app.graph import GraphClient, GraphError
 from app.models import ClassificationEvent, Message, Reply, SessionToken, User
 from app.seed_data import MESSAGES, USERS
+from app.servicetitan import ServiceTitanClient, ServiceTitanError
 
 DEFAULT_SEED_PASSWORD = "expert-dev"
 
@@ -325,6 +328,67 @@ def cmd_checkgraph(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_checkservicetitan(_: argparse.Namespace) -> int:
+    """Prove the ServiceTitan connection: a token, then one read per scope.
+
+    Read-only — the app holds nothing but View scopes, so it couldn't write
+    if it tried. Prints record counts, never records. Run it after finishing
+    docs/servicetitan-setup.md, and whenever the lookup card goes blank.
+    """
+    missing = [
+        name
+        for name, value in [
+            ("SERVICETITAN_APP_KEY", settings.servicetitan_app_key),
+            ("SERVICETITAN_TENANT_ID", settings.servicetitan_tenant_id),
+            ("SERVICETITAN_CLIENT_ID", settings.servicetitan_client_id),
+            ("SERVICETITAN_CLIENT_SECRET", settings.servicetitan_client_secret),
+        ]
+        if not value.strip()
+    ]
+    if missing:
+        print(f"Not configured: {', '.join(missing)} empty or unset in .env.")
+        print("The walkthrough is docs/servicetitan-setup.md.")
+        return 1
+
+    try:
+        st = ServiceTitanClient()
+    except ValueError as exc:
+        print(exc)
+        return 1
+
+    with st:
+        try:
+            st.check_token()
+        except ServiceTitanError as exc:
+            print(f"No token: {exc}")
+            return 1
+        print(
+            f"Token acquired — the credentials are good "
+            f"({st.environment} environment, tenant {st.tenant_id}).\n"
+        )
+
+        results = st.probe()
+
+    failed = 0
+    for result in results:
+        if result.ok:
+            count = (
+                f"{result.total:,} record(s)" if result.total is not None else "readable"
+            )
+            print(f"  {result.scope:<22} ok — {count}")
+        else:
+            failed += 1
+            print(f"  {result.scope:<22} {result.detail}")
+
+    print()
+    if failed:
+        print(f"{failed} of {len(results)} scope(s) unreadable.")
+        return 1
+    print("All scopes readable. That is the whole grant — the app has no write")
+    print("scopes, so there is nothing further to prove.")
+    return 0
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
     """Backfill: run the classifier over open messages still at 0 confidence.
 
@@ -540,6 +604,11 @@ def main() -> int:
         "checkgraph", help="prove the Microsoft 365 connection, read-only"
     )
     p_cg.set_defaults(func=cmd_checkgraph)
+
+    p_cs = sub.add_parser(
+        "checkservicetitan", help="prove the ServiceTitan connection, read-only"
+    )
+    p_cs.set_defaults(func=cmd_checkservicetitan)
 
     p_cl = sub.add_parser(
         "classify", help="sort unclassified open messages with the Claude model"

@@ -16,9 +16,9 @@ The one-sentence goal: **the owner stops being a router.**
 | Phase | What it is | Status |
 |---|---|---|
 | 1 | Portal shell running on seeded data | **Done** |
-| 2 | Microsoft Graph ingestion | Not started |
-| 3 | Classification and drafted replies | Not started |
-| 4 | ServiceTitan lookup and write-back | Not started |
+| 2 | Microsoft Graph ingestion | **Done** — live on Render |
+| 3 | Classification and drafted replies | **Done** — sending waits on the stage-two Exchange grant |
+| 4 | ServiceTitan lookup and write-back | **In progress** — read-only connection; lookup card next |
 
 Phase 1 has no Microsoft connection and no AI. The queue, the login, the
 assign/move/handle/reply actions and the whole interface are real and running
@@ -33,6 +33,7 @@ message and marks it handled. That's the whole behavior.
 - **[docs/adding-a-user.md](docs/adding-a-user.md)** — office users
 - **[docs/phase-1-check.md](docs/phase-1-check.md)** — what to click to satisfy yourself it works
 - **[docs/azure-setup.md](docs/azure-setup.md)** — connecting to Microsoft 365 (do this before Phase 2 code)
+- **[docs/servicetitan-setup.md](docs/servicetitan-setup.md)** — connecting to ServiceTitan, read-only (Phase 4)
 - **[docs/decisions.md](docs/decisions.md)** — choices already argued, and why
 
 ## How it's put together

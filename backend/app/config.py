@@ -86,6 +86,20 @@ class Settings(BaseSettings):
     # sign-off. Read on every draft.
     draft_prompt_path: Path = BACKEND_DIR / "prompts" / "draft.md"
 
+    # --- Phase 4: ServiceTitan -------------------------------------------
+    # Four values identify the app to ServiceTitan; docs/servicetitan-setup.md
+    # says where each comes from. Any of them empty = lookups off, and the
+    # detail pane simply doesn't show the card.
+    servicetitan_app_key: str = ""
+    servicetitan_tenant_id: str = ""
+    servicetitan_client_id: str = ""
+    servicetitan_client_secret: str = ""
+
+    # "production" or "integration" (the sandbox clone ServiceTitan
+    # provisions on request). Client ID and secret are issued per
+    # environment; the app key is the same in both.
+    servicetitan_environment: str = "production"
+
     @property
     def classification_configured(self) -> bool:
         return bool(self.anthropic_api_key.strip())
@@ -109,6 +123,18 @@ class Settings(BaseSettings):
     @property
     def graph_configured(self) -> bool:
         return bool(self.ms_tenant_id and self.ms_client_id and self.ms_client_secret)
+
+    @property
+    def servicetitan_configured(self) -> bool:
+        return all(
+            value.strip()
+            for value in (
+                self.servicetitan_app_key,
+                self.servicetitan_tenant_id,
+                self.servicetitan_client_id,
+                self.servicetitan_client_secret,
+            )
+        )
 
     @property
     def database_url_resolved(self) -> str:

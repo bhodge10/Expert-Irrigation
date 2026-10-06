@@ -17,6 +17,15 @@ envVarGroups:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Phase 4 — read-only ServiceTitan lookup. docs/servicetitan-setup.md.
+      - key: SERVICETITAN_APP_KEY
+        sync: false
+      - key: SERVICETITAN_TENANT_ID
+        sync: false
+      - key: SERVICETITAN_CLIENT_ID
+        sync: false
+      - key: SERVICETITAN_CLIENT_SECRET
+        sync: false
 
 services:
   - type: web
